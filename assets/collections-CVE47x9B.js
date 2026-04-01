@@ -1,0 +1,1 @@
+import{t as e}from"./index-C8TqRDB4.js";export{e as loadCollection};
