@@ -2,6 +2,8 @@
 
 > Drop, tag, filter, and share points of interest — anywhere in the world.
 
+![FieldNotes screenshot showing 3D terrain view of Portland with POI markers and side panel](screenshot.png)
+
 A full-screen web app for mapping and sharing POIs. Dark by default, map-first, with a clean high-contrast aesthetic. Share any collection of points via a single URL.
 
 ## Stack
