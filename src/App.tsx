@@ -31,7 +31,7 @@ export default function App() {
         () => setInitialCenter(null) // fall back to default
       );
     }
-  }, [loadSharedCollection]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMapClick = useCallback(
     (lat: number, lng: number) => {

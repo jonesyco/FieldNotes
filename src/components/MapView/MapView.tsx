@@ -49,6 +49,25 @@ function applyGreenSpaces(m: maplibregl.Map, t: Theme) {
 const BUILDING_LAYER_ID = 'fieldnotes-3d-buildings';
 const BUILDING_PITCH = 50;
 
+const TERRAIN_SOURCE_ID = 'fieldnotes-terrain';
+const HILLSHADE_SOURCE_ID = 'fieldnotes-hillshade';
+const HILLSHADE_LAYER_ID = 'fieldnotes-hillshade-layer';
+const TERRAIN_PITCH = 65;
+// AWS terrain tiles — global coverage, free, no API key required (Terrarium encoding)
+const TERRAIN_TILES = ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'];
+
+// Theme-aware hillshade shadow colors
+const HILLSHADE_COLORS: Record<Theme, string> = {
+  dark:  '#0d0a04',
+  light: '#473B24',
+};
+
+// Theme-aware sky colors (used with map.setSky() — v5 API)
+const SKY_COLORS: Record<Theme, maplibregl.SkySpecification> = {
+  dark:  { 'sky-color': '#0d1b2e', 'horizon-color': '#1a3a5c', 'fog-color': '#0d1b2e' },
+  light: { 'sky-color': '#87CEEB', 'horizon-color': '#b8d4f0', 'fog-color': '#c9e4f8' },
+};
+
 interface MapViewProps {
   onMapClick: (lat: number, lng: number) => void;
   theme: Theme;
@@ -60,22 +79,36 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
   const map = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const [buildings3D, setBuildings3D] = useState(false);
+  const [terrain, setTerrain] = useState(false);
 
   const { pois, selectedPOI, hoveredPOIId, addingMode, setMapBounds, highlightedGroup, relocatingPOI } = usePOIStore();
 
-  // Refs so event handlers always see current values
+  // Refs so callbacks and effects always read current values without stale closures
   const addingModeRef = useRef(addingMode);
   const relocatingPOIRef = useRef(relocatingPOI);
   const onMapClickRef = useRef(onMapClick);
   const buildings3DRef = useRef(buildings3D);
+  const terrainRef = useRef(terrain);
   const themeRef = useRef(theme);
   const initialCenterRef = useRef(initialCenter ?? null);
-  useEffect(() => { addingModeRef.current = addingMode; }, [addingMode]);
-  useEffect(() => { relocatingPOIRef.current = relocatingPOI; }, [relocatingPOI]);
-  useEffect(() => { onMapClickRef.current = onMapClick; }, [onMapClick]);
-  useEffect(() => { buildings3DRef.current = buildings3D; }, [buildings3D]);
-  useEffect(() => { themeRef.current = theme; }, [theme]);
-  useEffect(() => { initialCenterRef.current = initialCenter ?? null; }, [initialCenter]);
+  const poisRef = useRef(pois);
+  const selectedPOIRef = useRef(selectedPOI);
+  const hoveredPOIIdRef = useRef(hoveredPOIId);
+  const highlightedGroupRef = useRef(highlightedGroup);
+  useEffect(() => {
+    addingModeRef.current = addingMode;
+    relocatingPOIRef.current = relocatingPOI;
+    onMapClickRef.current = onMapClick;
+    buildings3DRef.current = buildings3D;
+    terrainRef.current = terrain;
+    themeRef.current = theme;
+    initialCenterRef.current = initialCenter ?? null;
+    poisRef.current = pois;
+    selectedPOIRef.current = selectedPOI;
+    hoveredPOIIdRef.current = hoveredPOIId;
+    highlightedGroupRef.current = highlightedGroup;
+  }, [addingMode, relocatingPOI, onMapClick, buildings3D, terrain, theme, initialCenter,
+      pois, selectedPOI, hoveredPOIId, highlightedGroup]);
 
   // Add the fill-extrusion layer on top of existing building layers
   const addBuildingExtrusion = useCallback((m: maplibregl.Map, t: Theme) => {
@@ -106,6 +139,53 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     });
   }, []);
 
+  const addTerrain = useCallback((m: maplibregl.Map, t: Theme) => {
+    // Use separate sources for terrain mesh and hillshade for better render quality
+    if (!m.getSource(TERRAIN_SOURCE_ID)) {
+      m.addSource(TERRAIN_SOURCE_ID, { type: 'raster-dem', tiles: TERRAIN_TILES, encoding: 'terrarium', tileSize: 256, maxzoom: 15 });
+    }
+    if (!m.getSource(HILLSHADE_SOURCE_ID)) {
+      m.addSource(HILLSHADE_SOURCE_ID, { type: 'raster-dem', tiles: TERRAIN_TILES, encoding: 'terrarium', tileSize: 256, maxzoom: 15 });
+    }
+
+    if (!m.getLayer(HILLSHADE_LAYER_ID)) {
+      m.addLayer({
+        id: HILLSHADE_LAYER_ID,
+        type: 'hillshade',
+        source: HILLSHADE_SOURCE_ID,
+        layout: { visibility: 'visible' },
+        paint: { 'hillshade-shadow-color': HILLSHADE_COLORS[t] },
+      });
+    }
+
+    m.setSky(SKY_COLORS[t]);
+    m.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.5 });
+  }, []);
+
+  const removeTerrain = useCallback((m: maplibregl.Map) => {
+    m.setTerrain(null);
+    m.setSky({});
+    if (m.getLayer(HILLSHADE_LAYER_ID)) m.removeLayer(HILLSHADE_LAYER_ID);
+    setTimeout(() => {
+      if (m.getSource(HILLSHADE_SOURCE_ID)) m.removeSource(HILLSHADE_SOURCE_ID);
+      if (m.getSource(TERRAIN_SOURCE_ID)) m.removeSource(TERRAIN_SOURCE_ID);
+    }, 150);
+  }, []);
+
+  // Compute the CSS class string for a marker dot from the latest ref values
+  const getDotClass = useCallback((poiId: string, group?: string) => {
+    const isSelected    = selectedPOIRef.current?.id === poiId;
+    const isHovered     = hoveredPOIIdRef.current === poiId;
+    const isGroupLit    = highlightedGroupRef.current != null && group === highlightedGroupRef.current;
+    const isGroupDimmed = highlightedGroupRef.current != null && group !== highlightedGroupRef.current;
+    return ['marker-dot',
+      isSelected    ? 'selected'     : '',
+      isHovered     ? 'hovered'      : '',
+      isGroupLit    ? 'group-lit'    : '',
+      isGroupDimmed ? 'group-dimmed' : '',
+    ].filter(Boolean).join(' ');
+  }, []);
+
   // Initialize map once
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
@@ -117,6 +197,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       zoom: PORTLAND_DEFAULT_ZOOM,
       attributionControl: false,
       pitchWithRotate: true,
+      maxPitch: 85,
     });
     map.current = m;
 
@@ -134,12 +215,15 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       }
     });
 
-    // Re-apply water color + green spaces + 3D layer after any style reload
+    // Re-apply water color + green spaces + 3D layers after any style reload
     m.on('style.load', () => {
       applyWaterColors(m, themeRef.current);
       applyGreenSpaces(m, themeRef.current);
       if (buildings3DRef.current) {
         addBuildingExtrusion(m, themeRef.current);
+      }
+      if (terrainRef.current) {
+        addTerrain(m, themeRef.current);
       }
     });
 
@@ -149,7 +233,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       m.remove();
       map.current = null;
     };
-  }, [setMapBounds, addBuildingExtrusion]);
+  }, [setMapBounds, addBuildingExtrusion, addTerrain]);
 
   // Switch map style when theme changes (skip first render — already set at init)
   const isFirstRender = useRef(true);
@@ -159,6 +243,22 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     map.current.setStyle(MAP_STYLES[theme]);
     // style.load handler will re-add the building extrusion automatically
   }, [theme]);
+
+  // Toggle 3D terrain on/off
+  const toggleTerrain = useCallback(() => {
+    const m = map.current;
+    if (!m) return;
+    const next = !terrainRef.current;
+    setTerrain(next);
+
+    if (next) {
+      m.easeTo({ pitch: TERRAIN_PITCH, duration: 700 });
+      if (m.isStyleLoaded()) addTerrain(m, themeRef.current);
+    } else {
+      m.easeTo({ pitch: buildings3DRef.current ? BUILDING_PITCH : 0, duration: 500 });
+      if (m.isStyleLoaded()) removeTerrain(m);
+    }
+  }, [addTerrain, removeTerrain]);
 
   // Toggle 3D buildings on/off
   const toggle3D = useCallback(() => {
@@ -183,7 +283,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     map.current.getCanvas().style.cursor = (addingMode || relocatingPOI) ? 'crosshair' : '';
   }, [addingMode, relocatingPOI]);
 
-  // Sync markers with POIs
+  // Add/remove/reposition markers when POI list changes (structural sync only)
   useEffect(() => {
     if (!map.current) return;
     const currentIds = new Set(pois.map((p) => p.id));
@@ -193,27 +293,13 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     });
 
     pois.forEach((poi) => {
-      const isSelected = selectedPOI?.id === poi.id;
-      const isHovered = hoveredPOIId === poi.id;
-      const isGroupLit = highlightedGroup != null && poi.group === highlightedGroup;
-      const isGroupDimmed = highlightedGroup != null && poi.group !== highlightedGroup;
-      const color = CATEGORY_COLORS[poi.category];
-
-      const dotClass = [
-        'marker-dot',
-        isSelected  ? 'selected'    : '',
-        isHovered   ? 'hovered'     : '',
-        isGroupLit  ? 'group-lit'   : '',
-        isGroupDimmed ? 'group-dimmed' : '',
-      ].filter(Boolean).join(' ');
-
       if (!markersRef.current.has(poi.id)) {
         const el = document.createElement('div');
         el.className = 'poi-marker';
-        el.style.setProperty('--marker-color', color);
+        el.style.setProperty('--marker-color', CATEGORY_COLORS[poi.category]);
 
         const dot = document.createElement('div');
-        dot.className = dotClass;
+        dot.className = getDotClass(poi.id, poi.group);
         el.appendChild(dot);
 
         el.addEventListener('click', (e) => {
@@ -228,13 +314,19 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
 
         markersRef.current.set(poi.id, marker);
       } else {
-        const marker = markersRef.current.get(poi.id)!;
-        marker.setLngLat([poi.lng, poi.lat]);
-        const dot = marker.getElement().querySelector('.marker-dot');
-        if (dot) dot.className = dotClass;
+        markersRef.current.get(poi.id)!.setLngLat([poi.lng, poi.lat]);
       }
     });
-  }, [pois, selectedPOI, hoveredPOIId, highlightedGroup]);
+  }, [pois, getDotClass]);
+
+  // Update marker visual state when selection/hover/group changes (no DOM creation)
+  useEffect(() => {
+    if (!map.current) return;
+    poisRef.current.forEach((poi) => {
+      const dot = markersRef.current.get(poi.id)?.getElement().querySelector('.marker-dot');
+      if (dot) dot.className = getDotClass(poi.id, poi.group);
+    });
+  }, [selectedPOI?.id, hoveredPOIId, highlightedGroup, getDotClass]);
 
   // Fly to selected POI
   useEffect(() => {
@@ -264,6 +356,14 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
       <div className="map-controls">
+        <button
+          className={`map-ctrl-btn${terrain ? ' map-ctrl-btn--active' : ''}`}
+          onClick={toggleTerrain}
+          title={terrain ? 'Disable 3D terrain' : 'Enable 3D terrain'}
+          aria-pressed={terrain}
+        >
+          ⛰ TERRAIN
+        </button>
         <button
           className={`map-ctrl-btn${buildings3D ? ' map-ctrl-btn--active' : ''}`}
           onClick={toggle3D}

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { POI } from '../../types';
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../types';
 
@@ -8,7 +9,7 @@ interface POIListItemProps {
   onHover: (id: string | null) => void;
 }
 
-export default function POIListItem({
+export default memo(function POIListItem({
   poi,
   isSelected,
   onSelect,
@@ -54,4 +55,4 @@ export default function POIListItem({
       </div>
     </div>
   );
-}
+});
