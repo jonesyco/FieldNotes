@@ -56,7 +56,7 @@ const DEFAULT_FILTER: FilterState = {
 
 export const usePOIStore = create<POIStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       pois: SEED_POIS,
       selectedPOI: null,
       hoveredPOIId: null,

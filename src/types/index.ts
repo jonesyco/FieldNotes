@@ -1,4 +1,4 @@
-import { CategoryId } from './categories';
+import type { CategoryId } from './categories';
 
 export interface POI {
   id: string;
