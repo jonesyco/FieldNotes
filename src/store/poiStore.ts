@@ -153,7 +153,7 @@ export const usePOIStore = create<POIStore>()(
       setCollectionId: (id) => set({ collectionId: id }),
       setIsReadOnly: (v) => set({ isReadOnly: v }),
       setIsSaving: (v) => set({ isSaving: v }),
-      
+
       addCategory: (name, color) =>
         set((state) => {
           const newCategory: Category = {
@@ -178,11 +178,11 @@ export const usePOIStore = create<POIStore>()(
         set((state) => {
           // Cannot delete 'other' category
           if (id === 'other') return state;
-          
+
           // Delete category and reassign POIs to 'other'
           return {
             activeCategories: state.activeCategories.filter((cat) => cat.id !== id),
-            pois: state.pois.map((poi) => 
+            pois: state.pois.map((poi) =>
               poi.category === id ? { ...poi, category: 'other' } : poi
             ),
             selectedPOI:
@@ -196,7 +196,7 @@ export const usePOIStore = create<POIStore>()(
         set((state) => {
           // Cannot delete 'other' category
           if (id === 'other') return state;
-          
+
           const categoryExists = state.activeCategories.some((cat) => cat.id === id);
           if (!categoryExists) {
             // Re-enable predefined category

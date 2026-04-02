@@ -6,25 +6,25 @@ import { PORTLAND_CENTER, PORTLAND_DEFAULT_ZOOM } from '../../utils/geo';
 import type { Theme } from '../../hooks/useTheme';
 
 const MAP_STYLES: Record<Theme, string> = {
-  dark:  'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
   light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
 };
 
 // Colors for the fill-extrusion layer per theme
 const BUILDING_COLORS: Record<Theme, { fill: string; base: string; opacity: number }> = {
-  dark:  { fill: '#2e2e2e', base: '#1a1a1a', opacity: 0.85 },
+  dark: { fill: '#2e2e2e', base: '#1a1a1a', opacity: 0.85 },
   light: { fill: '#c4cadb', base: '#b0b8cd', opacity: 0.70 },
 };
 
 // Water fill colors — override the basemap's default per theme
 const WATER_COLORS: Record<Theme, string> = {
-  dark:  '#1a3a5c',  // deep steel blue — visible but fits dark palette
+  dark: '#1a3a5c',  // deep steel blue — visible but fits dark palette
   light: '#a4cde4',  // soft classic-map blue
 };
 
 // Green space colors — parks, grass, woods, nature reserves
 const GREEN_COLORS: Record<Theme, { landcover: string; parks: string }> = {
-  dark:  { landcover: '#1c3022', parks: '#162a1c' },
+  dark: { landcover: '#1c3022', parks: '#162a1c' },
   light: { landcover: '#c8e0bc', parks: '#b8d8a8' },
 };
 
@@ -58,13 +58,13 @@ const TERRAIN_TILES = ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/
 
 // Theme-aware hillshade shadow colors
 const HILLSHADE_COLORS: Record<Theme, string> = {
-  dark:  '#0d0a04',
+  dark: '#0d0a04',
   light: '#473B24',
 };
 
 // Theme-aware sky colors (used with map.setSky() — v5 API)
 const SKY_COLORS: Record<Theme, maplibregl.SkySpecification> = {
-  dark:  { 'sky-color': '#0d1b2e', 'horizon-color': '#1a3a5c', 'fog-color': '#0d1b2e' },
+  dark: { 'sky-color': '#0d1b2e', 'horizon-color': '#1a3a5c', 'fog-color': '#0d1b2e' },
   light: { 'sky-color': '#87CEEB', 'horizon-color': '#b8d4f0', 'fog-color': '#c9e4f8' },
 };
 
@@ -110,7 +110,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     highlightedGroupRef.current = highlightedGroup;
     activeCategoriesRef.current = activeCategories;
   }, [addingMode, relocatingPOI, onMapClick, buildings3D, terrain, theme, initialCenter,
-      pois, selectedPOI, hoveredPOIId, highlightedGroup, activeCategories]);
+    pois, selectedPOI, hoveredPOIId, highlightedGroup, activeCategories]);
 
   // Add the fill-extrusion layer on top of existing building layers
   const addBuildingExtrusion = useCallback((m: maplibregl.Map, t: Theme) => {
@@ -126,8 +126,8 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
         'fill-extrusion-color': [
           'interpolate', ['linear'],
           ['coalesce', ['get', 'render_height'], 0],
-          0,   base,
-          20,  fill,
+          0, base,
+          20, fill,
           100, fill,
         ],
         'fill-extrusion-height': [
@@ -176,14 +176,14 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
 
   // Compute the CSS class string for a marker dot from the latest ref values
   const getDotClass = useCallback((poiId: string, group?: string) => {
-    const isSelected    = selectedPOIRef.current?.id === poiId;
-    const isHovered     = hoveredPOIIdRef.current === poiId;
-    const isGroupLit    = highlightedGroupRef.current != null && group === highlightedGroupRef.current;
+    const isSelected = selectedPOIRef.current?.id === poiId;
+    const isHovered = hoveredPOIIdRef.current === poiId;
+    const isGroupLit = highlightedGroupRef.current != null && group === highlightedGroupRef.current;
     const isGroupDimmed = highlightedGroupRef.current != null && group !== highlightedGroupRef.current;
     return ['marker-dot',
-      isSelected    ? 'selected'     : '',
-      isHovered     ? 'hovered'      : '',
-      isGroupLit    ? 'group-lit'    : '',
+      isSelected ? 'selected' : '',
+      isHovered ? 'hovered' : '',
+      isGroupLit ? 'group-lit' : '',
       isGroupDimmed ? 'group-dimmed' : '',
     ].filter(Boolean).join(' ');
   }, []);

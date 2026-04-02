@@ -24,12 +24,12 @@ export async function saveCollection(
   const id = nanoid(8);
   const { error } = await supabase
     .from('collections')
-    .insert({ 
-      id, 
-      pois, 
+    .insert({
+      id,
+      pois,
       categories: categories ?? undefined,
-      title: title ?? null, 
-      user_id: userId ?? null 
+      title: title ?? null,
+      user_id: userId ?? null
     });
   if (error) throw error;
   return id;
