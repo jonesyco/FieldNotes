@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import type { POI } from '../../types';
-import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../types';
+import { getCategoryColorById, getCategoryLabelById } from '../../types/categories';
+import { usePOIStore } from '../../store/poiStore';
 
 interface POIListItemProps {
   poi: POI;
@@ -15,7 +16,9 @@ export default memo(function POIListItem({
   onSelect,
   onHover,
 }: POIListItemProps) {
-  const color = CATEGORY_COLORS[poi.category];
+  const { activeCategories } = usePOIStore();
+  const color = getCategoryColorById(activeCategories, poi.category);
+  const label = getCategoryLabelById(activeCategories, poi.category);
 
   return (
     <div
@@ -40,7 +43,7 @@ export default memo(function POIListItem({
         </div>
         <div className="list-item-meta">
           <span className="list-item-category" style={{ color }}>
-            {CATEGORY_LABELS[poi.category]}
+            {label}
           </span>
           <span className="list-item-sep" aria-hidden="true">·</span>
           <span className="list-item-neighborhood">{poi.neighborhood.toUpperCase()}</span>

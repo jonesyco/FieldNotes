@@ -1,28 +1,27 @@
 import { usePOIStore } from '../../store/poiStore';
-import { CATEGORIES, CATEGORY_LABELS, CATEGORY_COLORS } from '../../types';
 
 export default function FilterBar() {
-  const { filter, toggleCategory, setFilter, resetFilters } = usePOIStore();
+  const { filter, toggleCategory, setFilter, resetFilters, activeCategories } = usePOIStore();
   const hasFilters =
     filter.categories.length > 0 || filter.favoritesOnly || filter.inBoundsOnly;
 
   return (
     <div className="filter-bar">
       <div className="filter-categories">
-        {CATEGORIES.map((cat) => {
-          const active = filter.categories.includes(cat);
+        {activeCategories.map((cat) => {
+          const active = filter.categories.includes(cat.id);
           return (
             <button
-              key={cat}
+              key={cat.id}
               className={`filter-chip${active ? ' filter-chip--active' : ''}`}
               style={
                 active
-                  ? { borderColor: CATEGORY_COLORS[cat], color: CATEGORY_COLORS[cat] }
+                  ? { borderColor: cat.color, color: cat.color }
                   : undefined
               }
-              onClick={() => toggleCategory(cat)}
+              onClick={() => toggleCategory(cat.id)}
             >
-              {CATEGORY_LABELS[cat]}
+              {cat.name}
             </button>
           );
         })}

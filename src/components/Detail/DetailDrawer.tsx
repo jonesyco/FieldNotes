@@ -1,13 +1,14 @@
 import { usePOIStore } from '../../store/poiStore';
-import { CATEGORY_LABELS, CATEGORY_COLORS } from '../../types';
+import { getCategoryColorById, getCategoryLabelById } from '../../types/categories';
 
 export default function DetailDrawer() {
-  const { selectedPOI, selectPOI, toggleFavorite, deletePOI, setEditingPOI, setRelocatingPOI, isReadOnly } =
+  const { selectedPOI, selectPOI, toggleFavorite, deletePOI, setEditingPOI, setRelocatingPOI, isReadOnly, activeCategories } =
     usePOIStore();
 
   if (!selectedPOI) return null;
 
-  const color = CATEGORY_COLORS[selectedPOI.category];
+  const color = getCategoryColorById(activeCategories, selectedPOI.category);
+  const label = getCategoryLabelById(activeCategories, selectedPOI.category);
   const date = new Date(selectedPOI.createdAt).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -27,7 +28,7 @@ export default function DetailDrawer() {
       <div className="detail-header">
         <div className="detail-meta-top">
           <span className="detail-category" style={{ color }}>
-            {CATEGORY_LABELS[selectedPOI.category]}
+            {label}
           </span>
           <span className="detail-neighborhood-badge">
             {selectedPOI.neighborhood.toUpperCase()}

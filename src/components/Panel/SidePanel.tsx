@@ -11,6 +11,7 @@ import ShareButton from '../UI/ShareButton';
 import GroupPanel from './GroupPanel';
 import AuthButton from '../UI/AuthButton';
 import MyMapsDrawer from './MyMapsDrawer';
+import SettingsModal from '../UI/SettingsModal';
 
 interface SidePanelProps {
   onAddPOI: () => void;
@@ -25,6 +26,7 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
     usePOIStore();
   const auth = useAuth();
   const [myMapsOpen, setMyMapsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const filtered = useMemo(
     () => filterAndSortPOIs(pois, filter, mapBounds),
@@ -41,13 +43,6 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
     <aside className="side-panel" aria-label="Points of interest panel">
       <header className="panel-header">
         <div className="site-title">
-          <svg className="title-pencil" aria-hidden="true" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <rect x="9" y="1" width="6" height="3.5" rx="1" fill="#f48fb1"/>
-            <rect x="9" y="4" width="6" height="1.5" fill="#aaa"/>
-            <rect x="9" y="5.5" width="6" height="12" fill="#FDD835"/>
-            <path d="M9 17.5 L12 23 L15 17.5 Z" fill="#e6a800"/>
-            <path d="M10.8 20.5 L12 23 L13.2 20.5 Z" fill="#555"/>
-          </svg>
           <span className="title-text">FieldNotes</span>
         </div>
         <div className="panel-actions">
@@ -62,6 +57,15 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
           </button>
           <button className="btn-action btn-secondary" onClick={onImport}>
             ↑
+          </button>
+          <button
+            className="btn-action btn-secondary"
+            onClick={() => setSettingsOpen(true)}
+            disabled={isReadOnly}
+            title="Category settings"
+            aria-label="Open category settings"
+          >
+            ⚙
           </button>
           <button
             className="btn-action btn-secondary btn-theme"
@@ -82,6 +86,8 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
           onClose={() => setMyMapsOpen(false)}
         />
       )}
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {isReadOnly && (
         <div className="readonly-banner" role="status">

@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import type { FormEvent } from 'react';
 import { usePOIStore } from '../../store/poiStore';
-import { CATEGORIES, CATEGORY_LABELS } from '../../types';
-import type { POI, Category } from '../../types';
+import type { POI } from '../../types';
+import type { CategoryId } from '../../types/categories';
 
 interface POIFormModalProps {
   mode: 'add' | 'edit';
@@ -26,11 +26,11 @@ export default function POIFormModal({
   poi,
   onClose,
 }: POIFormModalProps) {
-  const { addPOI, updatePOI, pois } = usePOIStore();
+  const { addPOI, updatePOI, pois, activeCategories } = usePOIStore();
 
   const [title, setTitle] = useState(poi?.title ?? '');
   const [description, setDescription] = useState(poi?.description ?? '');
-  const [category, setCategory] = useState<Category>(poi?.category ?? 'other');
+  const [category, setCategory] = useState<CategoryId>(poi?.category ?? 'other');
   const [tags, setTags] = useState(poi?.tags.join(', ') ?? '');
   const [neighborhood, setNeighborhood] = useState(poi?.neighborhood ?? '');
   const [group, setGroup] = useState(poi?.group ?? '');
@@ -128,12 +128,12 @@ export default function POIFormModal({
                 id="poi-category"
                 className="form-select"
                 value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
+                onChange={(e) => setCategory(e.target.value as CategoryId)}
                 required
               >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {CATEGORY_LABELS[c]}
+                {activeCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
                   </option>
                 ))}
               </select>

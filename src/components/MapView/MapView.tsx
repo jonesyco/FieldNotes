@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { usePOIStore } from '../../store/poiStore';
-import { CATEGORY_COLORS } from '../../types';
+import { getCategoryColorById } from '../../types/categories';
 import { PORTLAND_CENTER, PORTLAND_DEFAULT_ZOOM } from '../../utils/geo';
 import type { Theme } from '../../hooks/useTheme';
 
@@ -81,7 +81,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
   const [buildings3D, setBuildings3D] = useState(false);
   const [terrain, setTerrain] = useState(false);
 
-  const { pois, selectedPOI, hoveredPOIId, addingMode, setMapBounds, highlightedGroup, relocatingPOI } = usePOIStore();
+  const { pois, selectedPOI, hoveredPOIId, addingMode, setMapBounds, highlightedGroup, relocatingPOI, activeCategories } = usePOIStore();
 
   // Refs so callbacks and effects always read current values without stale closures
   const addingModeRef = useRef(addingMode);
@@ -95,6 +95,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
   const selectedPOIRef = useRef(selectedPOI);
   const hoveredPOIIdRef = useRef(hoveredPOIId);
   const highlightedGroupRef = useRef(highlightedGroup);
+  const activeCategoriesRef = useRef(activeCategories);
   useEffect(() => {
     addingModeRef.current = addingMode;
     relocatingPOIRef.current = relocatingPOI;
@@ -107,8 +108,9 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     selectedPOIRef.current = selectedPOI;
     hoveredPOIIdRef.current = hoveredPOIId;
     highlightedGroupRef.current = highlightedGroup;
+    activeCategoriesRef.current = activeCategories;
   }, [addingMode, relocatingPOI, onMapClick, buildings3D, terrain, theme, initialCenter,
-      pois, selectedPOI, hoveredPOIId, highlightedGroup]);
+      pois, selectedPOI, hoveredPOIId, highlightedGroup, activeCategories]);
 
   // Add the fill-extrusion layer on top of existing building layers
   const addBuildingExtrusion = useCallback((m: maplibregl.Map, t: Theme) => {
@@ -296,7 +298,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       if (!markersRef.current.has(poi.id)) {
         const el = document.createElement('div');
         el.className = 'poi-marker';
-        el.style.setProperty('--marker-color', CATEGORY_COLORS[poi.category]);
+        el.style.setProperty('--marker-color', getCategoryColorById(activeCategoriesRef.current, poi.category));
 
         const dot = document.createElement('div');
         dot.className = getDotClass(poi.id, poi.group);

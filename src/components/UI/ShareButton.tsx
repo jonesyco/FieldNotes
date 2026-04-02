@@ -8,7 +8,7 @@ interface ShareButtonProps {
 }
 
 export default function ShareButton({ userId }: ShareButtonProps) {
-  const { pois, setIsSaving, setCollectionId } = usePOIStore();
+  const { pois, setIsSaving, setCollectionId, activeCategories } = usePOIStore();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
   const [open, setOpen] = useState(false);
@@ -20,7 +20,7 @@ export default function ShareButton({ userId }: ShareButtonProps) {
     }
     setIsSaving(true);
     try {
-      const id = await saveCollection(pois, undefined, userId);
+      const id = await saveCollection(pois, undefined, userId, activeCategories);
       setCollectionId(id);
       const url = `${window.location.origin}${window.location.pathname}?c=${id}`;
       setShareUrl(url);
