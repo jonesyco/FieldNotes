@@ -3,7 +3,11 @@ import { usePOIStore } from '../../store/poiStore';
 import { saveCollection } from '../../lib/collections';
 import { isSupabaseConfigured } from '../../lib/supabase';
 
-export default function ShareButton() {
+interface ShareButtonProps {
+  userId?: string;
+}
+
+export default function ShareButton({ userId }: ShareButtonProps) {
   const { pois, setIsSaving, setCollectionId } = usePOIStore();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
@@ -16,11 +20,10 @@ export default function ShareButton() {
     }
     setIsSaving(true);
     try {
-      const id = await saveCollection(pois);
+      const id = await saveCollection(pois, undefined, userId);
       setCollectionId(id);
       const url = `${window.location.origin}${window.location.pathname}?c=${id}`;
       setShareUrl(url);
-      // Update browser URL without reload
       window.history.replaceState({}, '', `?c=${id}`);
       setOpen(true);
     } catch (err) {

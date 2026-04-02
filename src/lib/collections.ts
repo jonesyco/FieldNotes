@@ -7,18 +7,32 @@ export interface Collection {
   title: string | null;
   pois: POI[];
   created_at: string;
+  user_id?: string | null;
 }
 
-export async function saveCollection(pois: POI[], title?: string): Promise<string> {
+export async function saveCollection(pois: POI[], title?: string, userId?: string): Promise<string> {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.');
   }
   const id = nanoid(8);
   const { error } = await supabase
     .from('collections')
-    .insert({ id, pois, title: title ?? null });
+    .insert({ id, pois, title: title ?? null, user_id: userId ?? null });
   if (error) throw error;
   return id;
+}
+
+export async function loadUserCollections(userId: string): Promise<Collection[]> {
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+  const { data, error } = await supabase
+    .from('collections')
+    .select('id, title, created_at, user_id, pois')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Collection[];
 }
 
 export async function loadCollection(id: string): Promise<Collection> {

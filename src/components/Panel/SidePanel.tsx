@@ -1,13 +1,16 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { usePOIStore } from '../../store/poiStore';
 import { filterAndSortPOIs } from '../../utils/filtering';
 import type { SortOption } from '../../types';
 import type { Theme } from '../../hooks/useTheme';
+import { useAuth } from '../../hooks/useAuth';
 import FilterBar from './FilterBar';
 import POIListItem from './POIListItem';
 import SearchBar from '../UI/SearchBar';
 import ShareButton from '../UI/ShareButton';
 import GroupPanel from './GroupPanel';
+import AuthButton from '../UI/AuthButton';
+import MyMapsDrawer from './MyMapsDrawer';
 
 interface SidePanelProps {
   onAddPOI: () => void;
@@ -20,6 +23,8 @@ interface SidePanelProps {
 export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggleTheme }: SidePanelProps) {
   const { pois, filter, mapBounds, selectedPOI, selectPOI, hoverPOI, setFilter, isReadOnly, setIsReadOnly, setCollectionId } =
     usePOIStore();
+  const auth = useAuth();
+  const [myMapsOpen, setMyMapsOpen] = useState(false);
 
   const filtered = useMemo(
     () => filterAndSortPOIs(pois, filter, mapBounds),
@@ -36,23 +41,22 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
     <aside className="side-panel" aria-label="Points of interest panel">
       <header className="panel-header">
         <div className="site-title">
-          {/* <svg className="title-pencil" aria-hidden="true" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <rect x="9" y="1" width="6" height="3.5" rx="1" fill="#f48fb1"/>
-              <rect x="9" y="4" width="6" height="1.5" fill="#aaa"/>
-              <rect x="9" y="5.5" width="6" height="12" fill="#FDD835"/>
-              <path d="M9 17.5 L12 23 L15 17.5 Z" fill="#e6a800"/>
-              <path d="M10.8 20.5 L12 23 L13.2 20.5 Z" fill="#555"/>
-            </svg> */}
+          <svg className="title-pencil" aria-hidden="true" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <rect x="9" y="1" width="6" height="3.5" rx="1" fill="#f48fb1"/>
+            <rect x="9" y="4" width="6" height="1.5" fill="#aaa"/>
+            <rect x="9" y="5.5" width="6" height="12" fill="#FDD835"/>
+            <path d="M9 17.5 L12 23 L15 17.5 Z" fill="#e6a800"/>
+            <path d="M10.8 20.5 L12 23 L13.2 20.5 Z" fill="#555"/>
+          </svg>
           <span className="title-text">FieldNotes</span>
         </div>
-        {/* <p className="panel-subtitle">POINTS OF INTEREST</p> */}
         <div className="panel-actions">
           {!isReadOnly && (
             <button className="btn-action btn-add" onClick={onAddPOI}>
               + ADD
             </button>
           )}
-          <ShareButton />
+          <ShareButton userId={auth.user?.id} />
           <button className="btn-action btn-secondary" onClick={onExport}>
             ↓
           </button>
@@ -67,8 +71,17 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
           >
             {theme === 'dark' ? '☀' : '☾'}
           </button>
+          <AuthButton auth={auth} onOpenMyMaps={() => setMyMapsOpen(true)} />
         </div>
       </header>
+
+      {auth.user && (
+        <MyMapsDrawer
+          user={auth.user}
+          open={myMapsOpen}
+          onClose={() => setMyMapsOpen(false)}
+        />
+      )}
 
       {isReadOnly && (
         <div className="readonly-banner" role="status">

@@ -186,6 +186,7 @@ a:hover { text-decoration: underline; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
   z-index: 10;
   flex-shrink: 0;
 }
@@ -1341,4 +1342,279 @@ a:hover { text-decoration: underline; }
 .readonly-edit-btn:hover {
   background: var(--accent);
   color: #fff;
+}
+
+/* ============================================================
+   AUTH — Sign-in button & avatar
+   ============================================================ */
+
+.btn-signin {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.auth-menu-wrapper {
+  position: relative;
+}
+
+.btn-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-bright);
+  background: var(--bg-elevated);
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s;
+}
+
+.btn-avatar:hover {
+  border-color: var(--accent);
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initials {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: 'Barlow Condensed', sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.auth-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  z-index: 200;
+  overflow: hidden;
+}
+
+.auth-dropdown-user {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.auth-dropdown-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'Barlow Condensed', sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.auth-dropdown-email {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: 'Barlow', sans-serif;
+}
+
+.auth-dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  background: none;
+  border: none;
+  font-size: 11px;
+  font-family: 'Barlow Condensed', sans-serif;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.auth-dropdown-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.auth-dropdown-signout {
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.auth-dropdown-signout:hover {
+  color: #e55;
+  background: rgba(220, 50, 50, 0.08);
+}
+
+/* ============================================================
+   MY MAPS — Slide-in drawer
+   ============================================================ */
+
+.my-maps-drawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-panel);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+  border-right: 1px solid var(--border-light);
+}
+
+.my-maps-drawer.open {
+  transform: translateX(0);
+}
+
+.my-maps-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+.my-maps-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-primary);
+}
+
+.my-maps-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: color 0.1s, background 0.1s;
+}
+
+.my-maps-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.my-maps-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.my-maps-status {
+  padding: 20px 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'Barlow', sans-serif;
+  text-align: center;
+}
+
+.my-maps-error {
+  color: #e55;
+}
+
+.my-maps-empty {
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.my-maps-empty-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+.my-maps-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+.my-maps-item:hover {
+  background: var(--bg-hover);
+}
+
+.my-maps-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.my-maps-item-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.my-maps-item-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: 'Barlow', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.my-maps-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.btn-maps-action {
+  padding: 4px 9px;
+  font-size: 10px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.btn-maps-action:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-maps-share {
+  min-width: 28px;
+  text-align: center;
 }

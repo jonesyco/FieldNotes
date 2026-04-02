@@ -36,6 +36,7 @@ interface POIStore {
   setIsReadOnly: (v: boolean) => void;
   setIsSaving: (v: boolean) => void;
   loadSharedCollection: (id: string) => Promise<void>;
+  loadCollectionForEditing: (id: string) => Promise<void>;
 }
 
 const DEFAULT_FILTER: FilterState = {
@@ -143,6 +144,26 @@ export const usePOIStore = create<POIStore>()(
         } catch (err) {
           console.error('Failed to load collection:', err);
           alert('Could not load the shared map. The link may be invalid or expired.');
+        } finally {
+          set({ isSaving: false });
+        }
+      },
+      loadCollectionForEditing: async (id) => {
+        set({ isSaving: true });
+        try {
+          const { loadCollection } = await import('../lib/collections');
+          const collection = await loadCollection(id);
+          set({
+            pois: collection.pois,
+            collectionId: id,
+            isReadOnly: false,
+            selectedPOI: null,
+            filter: DEFAULT_FILTER,
+          });
+          window.history.replaceState({}, '', `?c=${id}`);
+        } catch (err) {
+          console.error('Failed to load collection:', err);
+          alert('Could not load the map. Please try again.');
         } finally {
           set({ isSaving: false });
         }
