@@ -151,7 +151,7 @@ export const usePOIStore = create<POIStore>()(
       highlightedGroup: null,
       setHighlightedGroup: (group) => set({ highlightedGroup: group }),
       replacePois: (pois, categories) =>
-        set((state) => ({ pois, ...(categories ? { activeCategories: categories } : {}) })),
+        set(() => ({ pois, ...(categories ? { activeCategories: categories } : {}) })),
       setCollectionId: (id) => set({ collectionId: id }),
       setIsSaving: (v) => set({ isSaving: v }),
 

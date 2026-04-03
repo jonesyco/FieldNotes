@@ -23,7 +23,7 @@ export function useCollectionSync() {
   const skipNextRealtimeRef = useRef(false);
   const remoteUpdateRef = useRef(false);
   const prevCollectionIdRef = useRef<string | null>(null);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Supabase Realtime — re-subscribe whenever the active collection changes
   useEffect(() => {
@@ -47,7 +47,7 @@ export function useCollectionSync() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { supabase!.removeChannel(channel); };
   }, [collectionId]);
 
   // Debounced auto-save — fires after local edits settle
