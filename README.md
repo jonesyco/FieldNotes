@@ -4,7 +4,7 @@
 
 ![FieldNotes screenshot showing 3D terrain view of Portland with POI markers and side panel](screenshot.png)
 
-A full-screen web app for mapping and sharing POIs. Dark by default, map-first, with a clean high-contrast aesthetic. Share any collection of points via a single URL.
+A full-screen web app for mapping and sharing POIs. Light by default with a clean, map-first aesthetic — toggle to dark mode anytime. Share any collection of points via a single URL.
 
 ## Stack
 
@@ -25,7 +25,7 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:5173** — the map opens centered on your current location (or Portland as fallback) with seed POIs pre-loaded.
+Open **http://localhost:5173** — the map opens centered on your current location (or Portland as fallback) with seed POIs pre-loaded. A brief interactive tour walks first-time users through the core features on their first visit.
 
 ## Sharing (Supabase Setup)
 
@@ -71,11 +71,15 @@ The ↗ SHARE button will now be active. Without credentials, the app runs fully
 
 ### Map
 - **Full-screen MapLibre GL JS map** — smooth pan/zoom, no API key required
-- **Dark / light mode** — toggle between CartoDB Dark Matter and Positron basemaps
+- **Light / dark mode** — light by default; toggle to CartoDB Dark Matter anytime
 - **Custom water color** — blue water in both themes
 - **Custom green spaces** — parks, grass, and nature reserves rendered green
 - **3D buildings** — toggle extruded buildings (zooms to street level, tilts camera)
 - **Geolocation** — map opens at your current location; ⊕ HOME button returns there
+
+### Onboarding
+- **First-visit tour** — four-step interactive walkthrough covers navigation, pins, and sharing
+- To replay: run `localStorage.removeItem('fieldnotes_tour_seen')` in the browser console
 
 ### POIs
 - **Add POI** — click "+ ADD", then click any point on the map to place it
@@ -108,13 +112,14 @@ src/
   types/          TypeScript interfaces + constants
   data/           Seed POIs
   store/          Zustand store (CRUD, filters, map state, collection loading)
-  hooks/          useTheme (dark/light mode, OS preference detection)
+  hooks/          useTheme (light/dark mode, defaults to light)
   utils/          Filter/sort logic, geo constants
   components/
     MapView/      MapLibre GL JS wrapper (map, markers, 3D, water/green colors)
     Panel/        SidePanel, POIListItem, FilterBar
     Detail/       DetailDrawer
     Forms/        Add/Edit modal
+    Tour/         First-visit onboarding tour (4 steps)
     UI/           SearchBar, ShareButton
 ```
 

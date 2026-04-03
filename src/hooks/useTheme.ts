@@ -6,8 +6,8 @@ export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem('fieldnotes-theme');
     if (stored === 'light' || stored === 'dark') return stored;
-    // Respect OS preference on first visit
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    // Default to light on first visit
+    return 'light';
   });
 
   useEffect(() => {

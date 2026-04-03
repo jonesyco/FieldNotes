@@ -3,6 +3,7 @@ import MapView from './components/MapView/MapView';
 import SidePanel from './components/Panel/SidePanel';
 import DetailDrawer from './components/Detail/DetailDrawer';
 import POIFormModal from './components/Forms/POIFormModal';
+import TourModal from './components/Tour/TourModal';
 import { usePOIStore } from './store/poiStore';
 import { useTheme } from './hooks/useTheme';
 import type { POI } from './types';
@@ -111,6 +112,8 @@ export default function App() {
       </main>
 
       <DetailDrawer />
+
+      <TourModal />
 
       {!isReadOnly && addCoords && (
         <POIFormModal
