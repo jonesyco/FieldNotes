@@ -14,6 +14,7 @@ interface POIStore {
   addingMode: boolean;
   editingPOI: POI | null;
   collectionId: string | null;
+  isReadOnly: boolean;
   isSaving: boolean;
   activeCategories: Category[];
 
@@ -65,6 +66,7 @@ export const usePOIStore = create<POIStore>()(
       editingPOI: null,
       relocatingPOI: null,
       collectionId: null,
+      isReadOnly: false,
       isSaving: false,
       activeCategories: PREDEFINED_CATEGORIES,
 
@@ -229,13 +231,11 @@ export const usePOIStore = create<POIStore>()(
           set({
             pois: collection.pois,
             collectionId: id,
+            isReadOnly: true,
             selectedPOI: null,
             filter: DEFAULT_FILTER,
             activeCategories: collection.categories || PREDEFINED_CATEGORIES,
           });
-        } catch (err) {
-          console.error('Failed to load collection:', err);
-          alert('Could not load the shared map. The link may be invalid or expired.');
         } finally {
           set({ isSaving: false });
         }
@@ -248,11 +248,11 @@ export const usePOIStore = create<POIStore>()(
           set({
             pois: collection.pois,
             collectionId: id,
+            isReadOnly: false,
             selectedPOI: null,
             filter: DEFAULT_FILTER,
             activeCategories: collection.categories || PREDEFINED_CATEGORIES,
           });
-          window.history.replaceState({}, '', `?c=${id}`);
         } catch (err) {
           console.error('Failed to load collection:', err);
           alert('Could not load the map. Please try again.');
