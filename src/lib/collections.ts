@@ -22,17 +22,32 @@ export async function saveCollection(
     throw new Error('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.');
   }
   const id = nanoid(8);
-  const { error } = await supabase
-    .from('collections')
-    .insert({
-      id,
-      pois,
-      categories: categories ?? undefined,
-      title: title ?? null,
-      user_id: userId ?? null
-    });
+  const payload: Record<string, unknown> = {
+    id,
+    pois,
+    title: title ?? null,
+    user_id: userId ?? null,
+  };
+  if (categories && categories.length > 0) {
+    payload.categories = categories;
+  }
+  const { error } = await supabase.from('collections').insert(payload);
   if (error) throw error;
   return id;
+}
+
+export async function updateCollection(
+  id: string,
+  pois: POI[],
+  categories?: Category[]
+): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+  const payload: Record<string, unknown> = { pois };
+  if (categories && categories.length > 0) payload.categories = categories;
+  const { error } = await supabase.from('collections').update(payload).eq('id', id);
+  if (error) throw error;
 }
 
 export async function loadUserCollections(userId: string): Promise<Collection[]> {

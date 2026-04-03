@@ -22,7 +22,7 @@ interface SidePanelProps {
 }
 
 export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggleTheme }: SidePanelProps) {
-  const { pois, filter, mapBounds, selectedPOI, selectPOI, hoverPOI, setFilter, isReadOnly, setIsReadOnly, setCollectionId } =
+  const { pois, filter, mapBounds, selectedPOI, selectPOI, hoverPOI, setFilter, collectionId } =
     usePOIStore();
   const auth = useAuth();
   const [myMapsOpen, setMyMapsOpen] = useState(false);
@@ -33,12 +33,6 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
     [pois, filter, mapBounds]
   );
 
-  const handleOpenInEditor = () => {
-    setIsReadOnly(false);
-    setCollectionId(null);
-    window.history.replaceState({}, '', window.location.pathname);
-  };
-
   return (
     <aside className="side-panel" aria-label="Points of interest panel">
       <header className="panel-header">
@@ -46,11 +40,9 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
           <span className="title-text">FieldNotes</span>
         </div>
         <div className="panel-actions">
-          {!isReadOnly && (
-            <button className="btn-action btn-add" onClick={onAddPOI}>
-              + ADD
-            </button>
-          )}
+          <button className="btn-action btn-add" onClick={onAddPOI}>
+            + ADD
+          </button>
           <ShareButton userId={auth.user?.id} />
           <button className="btn-action btn-secondary" onClick={onExport}>
             ↓
@@ -61,7 +53,6 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
           <button
             className="btn-action btn-secondary"
             onClick={() => setSettingsOpen(true)}
-            disabled={isReadOnly}
             title="Category settings"
             aria-label="Open category settings"
           >
@@ -89,12 +80,10 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-      {isReadOnly && (
+      {collectionId && (
         <div className="readonly-banner" role="status">
-          <span>VIEWING SHARED MAP</span>
-          <button className="readonly-edit-btn" onClick={handleOpenInEditor}>
-            OPEN IN EDITOR
-          </button>
+          <span>● LIVE SHARED MAP</span>
+          <ShareButton userId={auth.user?.id} mode="fork" />
         </div>
       )}
 

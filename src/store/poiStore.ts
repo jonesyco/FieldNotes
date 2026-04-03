@@ -14,7 +14,6 @@ interface POIStore {
   addingMode: boolean;
   editingPOI: POI | null;
   collectionId: string | null;
-  isReadOnly: boolean;
   isSaving: boolean;
   activeCategories: Category[];
 
@@ -35,8 +34,8 @@ interface POIStore {
   resetFilters: () => void;
   highlightedGroup: string | null;
   setHighlightedGroup: (group: string | null) => void;
+  replacePois: (pois: POI[], categories?: Category[]) => void;
   setCollectionId: (id: string | null) => void;
-  setIsReadOnly: (v: boolean) => void;
   setIsSaving: (v: boolean) => void;
   loadSharedCollection: (id: string) => Promise<void>;
   loadCollectionForEditing: (id: string) => Promise<void>;
@@ -66,7 +65,6 @@ export const usePOIStore = create<POIStore>()(
       editingPOI: null,
       relocatingPOI: null,
       collectionId: null,
-      isReadOnly: false,
       isSaving: false,
       activeCategories: PREDEFINED_CATEGORIES,
 
@@ -150,8 +148,9 @@ export const usePOIStore = create<POIStore>()(
       resetFilters: () => set({ filter: DEFAULT_FILTER }),
       highlightedGroup: null,
       setHighlightedGroup: (group) => set({ highlightedGroup: group }),
+      replacePois: (pois, categories) =>
+        set((state) => ({ pois, ...(categories ? { activeCategories: categories } : {}) })),
       setCollectionId: (id) => set({ collectionId: id }),
-      setIsReadOnly: (v) => set({ isReadOnly: v }),
       setIsSaving: (v) => set({ isSaving: v }),
 
       addCategory: (name, color) =>
@@ -230,7 +229,6 @@ export const usePOIStore = create<POIStore>()(
           set({
             pois: collection.pois,
             collectionId: id,
-            isReadOnly: true,
             selectedPOI: null,
             filter: DEFAULT_FILTER,
             activeCategories: collection.categories || PREDEFINED_CATEGORIES,
@@ -250,7 +248,6 @@ export const usePOIStore = create<POIStore>()(
           set({
             pois: collection.pois,
             collectionId: id,
-            isReadOnly: false,
             selectedPOI: null,
             filter: DEFAULT_FILTER,
             activeCategories: collection.categories || PREDEFINED_CATEGORIES,

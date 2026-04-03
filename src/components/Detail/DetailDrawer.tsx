@@ -2,7 +2,7 @@ import { usePOIStore } from '../../store/poiStore';
 import { getCategoryColorById, getCategoryLabelById } from '../../types/categories';
 
 export default function DetailDrawer() {
-  const { selectedPOI, selectPOI, toggleFavorite, deletePOI, setEditingPOI, setRelocatingPOI, isReadOnly, activeCategories } =
+  const { selectedPOI, selectPOI, toggleFavorite, deletePOI, setEditingPOI, setRelocatingPOI, activeCategories } =
     usePOIStore();
 
   if (!selectedPOI) return null;
@@ -87,26 +87,22 @@ export default function DetailDrawer() {
         >
           {selectedPOI.favorite ? '★ SAVED' : '☆ SAVE'}
         </button>
-        {!isReadOnly && (
-          <>
-            <button
-              className="btn-action btn-secondary"
-              onClick={() => setEditingPOI(selectedPOI)}
-            >
-              ✎ EDIT
-            </button>
-            <button
-              className="btn-action btn-secondary"
-              onClick={() => { setRelocatingPOI(selectedPOI); selectPOI(null); }}
-              title="Click a new spot on the map to move this pin"
-            >
-              ✦ MOVE
-            </button>
-            <button className="btn-action btn-danger" onClick={handleDelete}>
-              ✕ DELETE
-            </button>
-          </>
-        )}
+        <button
+          className="btn-action btn-secondary"
+          onClick={() => setEditingPOI(selectedPOI)}
+        >
+          ✎ EDIT
+        </button>
+        <button
+          className="btn-action btn-secondary"
+          onClick={() => { setRelocatingPOI(selectedPOI); selectPOI(null); }}
+          title="Click a new spot on the map to move this pin"
+        >
+          ✦ MOVE
+        </button>
+        <button className="btn-action btn-danger" onClick={handleDelete}>
+          ✕ DELETE
+        </button>
       </div>
     </div>
   );
