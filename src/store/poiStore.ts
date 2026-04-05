@@ -16,6 +16,9 @@ interface POIStore {
   collectionId: string | null;
   isReadOnly: boolean;
   isSaving: boolean;
+  pendingFlyTo: { center: [number, number]; zoom?: number; saveReturn?: boolean } | null;
+  searchPreview: { lat: number; lng: number; label: string } | null;
+  searchReturnTarget: { center: [number, number]; zoom: number } | null;
   activeCategories: Category[];
 
   addPOI: (poi: Omit<POI, 'id' | 'createdAt' | 'favorite'>) => void;
@@ -38,6 +41,9 @@ interface POIStore {
   replacePois: (pois: POI[], categories?: Category[]) => void;
   setCollectionId: (id: string | null) => void;
   setIsSaving: (v: boolean) => void;
+  setFlyTo: (target: { center: [number, number]; zoom?: number; saveReturn?: boolean } | null) => void;
+  setSearchPreview: (preview: { lat: number; lng: number; label: string } | null) => void;
+  setSearchReturnTarget: (t: { center: [number, number]; zoom: number } | null) => void;
   loadSharedCollection: (id: string) => Promise<void>;
   loadCollectionForEditing: (id: string) => Promise<void>;
   addCategory: (name: string, color: string) => void;
@@ -68,6 +74,9 @@ export const usePOIStore = create<POIStore>()(
       collectionId: null,
       isReadOnly: false,
       isSaving: false,
+      pendingFlyTo: null,
+      searchPreview: null,
+      searchReturnTarget: null,
       activeCategories: PREDEFINED_CATEGORIES,
 
       addPOI: (poiData) =>
@@ -154,6 +163,9 @@ export const usePOIStore = create<POIStore>()(
         set(() => ({ pois, ...(categories ? { activeCategories: categories } : {}) })),
       setCollectionId: (id) => set({ collectionId: id }),
       setIsSaving: (v) => set({ isSaving: v }),
+      setFlyTo: (target) => set({ pendingFlyTo: target }),
+      setSearchPreview: (preview) => set({ searchPreview: preview }),
+      setSearchReturnTarget: (t) => set({ searchReturnTarget: t }),
 
       addCategory: (name, color) =>
         set((state) => {

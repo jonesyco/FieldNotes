@@ -981,6 +981,22 @@ a:hover { text-decoration: underline; }
   color: #f0a500;
 }
 
+/* Search preview variant — positioned below the location search input */
+.add-mode-banner--search {
+  top: 60px;
+  border-color: var(--border-bright);
+  color: var(--text-primary);
+  max-width: calc(100% - 2rem);
+  overflow: hidden;
+}
+
+.add-mode-banner--search span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
 /* ============================================================
    Map Controls (floating button group)
    ============================================================ */
@@ -1027,8 +1043,170 @@ a:hover { text-decoration: underline; }
 }
 
 /* ============================================================
+   Location Search (geocoding overlay on map)
+   ============================================================ */
+.location-search {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 260px;
+  z-index: 10;
+  font-family: var(--font-condensed);
+}
+
+.location-search__input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(8, 8, 8, 0.86);
+  border: 1px solid var(--border-bright);
+  backdrop-filter: blur(8px);
+  padding: 0 10px;
+  height: 36px;
+}
+
+[data-theme="light"] .location-search__input-row {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: var(--border-light);
+}
+
+.location-search__icon {
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.location-search__input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-condensed);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 0;
+}
+
+.location-search__input::placeholder {
+  color: var(--text-muted);
+}
+
+.location-search__clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.location-search__clear:hover {
+  color: var(--text-primary);
+}
+
+.location-search__spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border-bright);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: ls-spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ls-spin {
+  to { transform: rotate(360deg); }
+}
+
+.location-search__results {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 4px 0;
+  background: rgba(8, 8, 8, 0.92);
+  border: 1px solid var(--border-bright);
+  backdrop-filter: blur(8px);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+[data-theme="light"] .location-search__results {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: var(--border-light);
+}
+
+.location-search__result {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  cursor: pointer;
+  gap: 2px;
+  transition: background var(--ease-fast);
+}
+
+.location-search__result:hover {
+  background: var(--bg-hover);
+}
+
+.location-search__result-primary {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+}
+
+.location-search__result-secondary {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================
    Map Markers (injected via JS)
    ============================================================ */
+/* Search result preview pin — pulsing accent-colored pin dropped at geocoded location */
+.search-preview-marker {
+  width: 22px;
+  height: 30px;
+  position: relative;
+  pointer-events: none;
+}
+
+.search-preview-marker::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: preview-pulse 1.8s ease-out infinite;
+}
+
+.search-preview-marker::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 8px solid var(--accent);
+}
+
+@keyframes preview-pulse {
+  0%   { box-shadow: 0 0 0 0 var(--accent-glow); }
+  70%  { box-shadow: 0 0 0 14px rgba(232, 93, 4, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(232, 93, 4, 0); }
+}
+
 .poi-marker {
   cursor: pointer;
   width: 16px;

@@ -81,7 +81,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
   const [buildings3D, setBuildings3D] = useState(false);
   const [terrain, setTerrain] = useState(false);
 
-  const { pois, selectedPOI, hoveredPOIId, addingMode, setMapBounds, highlightedGroup, relocatingPOI, activeCategories } = usePOIStore();
+  const { pois, selectedPOI, hoveredPOIId, addingMode, setMapBounds, highlightedGroup, relocatingPOI, activeCategories, pendingFlyTo, setFlyTo, searchPreview, setSearchReturnTarget } = usePOIStore();
 
   // Refs so callbacks and effects always read current values without stale closures
   const addingModeRef = useRef(addingMode);
@@ -232,6 +232,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     return () => {
       markersRef.current.forEach((mk) => mk.remove());
       markersRef.current.clear();
+      previewMarkerRef.current?.remove();
       m.remove();
       map.current = null;
     };
@@ -340,6 +341,17 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     });
   }, [selectedPOI?.id]);
 
+  // Fly to geocoded location from LocationSearch
+  useEffect(() => {
+    if (!map.current || !pendingFlyTo) return;
+    if (pendingFlyTo.saveReturn) {
+      const c = map.current.getCenter();
+      setSearchReturnTarget({ center: [c.lng, c.lat], zoom: map.current.getZoom() });
+    }
+    map.current.flyTo({ center: pendingFlyTo.center, zoom: pendingFlyTo.zoom ?? 13, duration: 900 });
+    setFlyTo(null);
+  }, [pendingFlyTo, setFlyTo, setSearchReturnTarget]);
+
   // Fly to user's geolocation when it becomes available (after initial render)
   const hasFlewToGeo = useRef(false);
   useEffect(() => {
@@ -353,6 +365,25 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     const center = initialCenterRef.current ?? PORTLAND_CENTER;
     map.current?.flyTo({ center, zoom: PORTLAND_DEFAULT_ZOOM, pitch: 0, duration: 800 });
   }, []);
+
+  // Search preview marker — pulsing pin dropped at the geocoded location
+  const previewMarkerRef = useRef<maplibregl.Marker | null>(null);
+  useEffect(() => {
+    if (previewMarkerRef.current) {
+      previewMarkerRef.current.remove();
+      previewMarkerRef.current = null;
+    }
+    if (!searchPreview || !map.current) return;
+    const el = document.createElement('div');
+    el.className = 'search-preview-marker';
+    previewMarkerRef.current = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+      .setLngLat([searchPreview.lng, searchPreview.lat])
+      .addTo(map.current);
+    return () => {
+      previewMarkerRef.current?.remove();
+      previewMarkerRef.current = null;
+    };
+  }, [searchPreview]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>

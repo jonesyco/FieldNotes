@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import MapView from './components/MapView/MapView';
+import LocationSearch from './components/MapView/LocationSearch';
 import SidePanel from './components/Panel/SidePanel';
 import DetailDrawer from './components/Detail/DetailDrawer';
 import POIFormModal from './components/Forms/POIFormModal';
@@ -12,7 +13,8 @@ import type { POI } from './types';
 export default function App() {
   const { theme, toggleTheme } = useTheme();
   const { addingMode, setAddingMode, editingPOI, setEditingPOI, pois, importPOIs,
-          loadSharedCollection, relocatingPOI, setRelocatingPOI, updatePOI, selectPOI, isReadOnly } =
+          loadSharedCollection, relocatingPOI, setRelocatingPOI, updatePOI, selectPOI, isReadOnly,
+          searchPreview, setSearchPreview, searchReturnTarget, setFlyTo } =
     usePOIStore();
   useCollectionSync();
 
@@ -52,6 +54,17 @@ export default function App() {
   );
 
   const handleAddPOI = () => setAddingMode(true);
+
+  const handleAddFromSearch = () => {
+    if (!searchPreview) return;
+    setAddCoords({ lat: searchPreview.lat, lng: searchPreview.lng });
+    setSearchPreview(null);
+  };
+
+  const handleDismissSearch = () => {
+    setSearchPreview(null);
+    if (searchReturnTarget) setFlyTo(searchReturnTarget);
+  };
 
   const handleCloseForm = () => {
     setAddCoords(null);
@@ -100,6 +113,14 @@ export default function App() {
 
       <main className="map-area">
         <MapView onMapClick={handleMapClick} theme={theme} initialCenter={initialCenter} />
+        <LocationSearch />
+        {!isReadOnly && searchPreview && (
+          <div className="add-mode-banner add-mode-banner--search" role="status">
+            <span>{searchPreview.label.split(',').slice(0, 2).join(',').toUpperCase()}</span>
+            <button onClick={handleAddFromSearch}>+ ADD LOCATION</button>
+            <button onClick={handleDismissSearch}>✕ DISMISS</button>
+          </div>
+        )}
         {addingMode && (
           <div className="add-mode-banner" role="status">
             <span>CLICK MAP TO PLACE NEW LOCATION</span>
