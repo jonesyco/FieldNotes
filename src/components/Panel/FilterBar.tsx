@@ -1,6 +1,10 @@
 import { usePOIStore } from '../../store/poiStore';
 
-export default function FilterBar() {
+interface FilterBarProps {
+  disabled?: boolean;
+}
+
+export default function FilterBar({ disabled = false }: FilterBarProps) {
   const { filter, toggleCategory, setFilter, resetFilters, activeCategories } = usePOIStore();
   const hasFilters =
     filter.categories.length > 0 || filter.favoritesOnly || filter.inBoundsOnly;
@@ -20,6 +24,7 @@ export default function FilterBar() {
                   : undefined
               }
               onClick={() => toggleCategory(cat.id)}
+              disabled={disabled}
             >
               {cat.name}
             </button>
@@ -32,6 +37,7 @@ export default function FilterBar() {
             type="checkbox"
             checked={filter.favoritesOnly}
             onChange={(e) => setFilter({ favoritesOnly: e.target.checked })}
+            disabled={disabled}
           />
           <span>★ FAVORITES</span>
         </label>
@@ -40,11 +46,12 @@ export default function FilterBar() {
             type="checkbox"
             checked={filter.inBoundsOnly}
             onChange={(e) => setFilter({ inBoundsOnly: e.target.checked })}
+            disabled={disabled}
           />
           <span>◉ IN VIEW</span>
         </label>
         {hasFilters && (
-          <button className="filter-reset" onClick={resetFilters}>
+          <button className="filter-reset" onClick={resetFilters} disabled={disabled}>
             ✕ CLEAR
           </button>
         )}

@@ -5,6 +5,7 @@ export interface POI {
   title: string;
   description: string;
   category: CategoryId;
+  includeInSequence: boolean;
   tags: string[];
   neighborhood: string;
   group?: string;
@@ -31,4 +32,9 @@ export interface MapBounds {
   south: number;
   east: number;
   west: number;
+}
+
+export interface RouteGeometry {
+  type: 'LineString';
+  coordinates: [number, number][];
 }

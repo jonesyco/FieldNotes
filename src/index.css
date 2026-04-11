@@ -143,6 +143,13 @@ button {
   color: inherit;
 }
 
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+
 input, select, textarea {
   font-family: var(--font-body);
   font-size: 13px;
@@ -263,6 +270,10 @@ a:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 
+.btn-action:disabled {
+  opacity: 0.45;
+}
+
 .btn-add {
   color: var(--accent);
   border-color: var(--accent);
@@ -316,6 +327,12 @@ a:hover { text-decoration: underline; }
   flex-shrink: 0;
 }
 
+.sequence-toggle-bar {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
 .search-bar {
   display: flex;
   align-items: center;
@@ -361,6 +378,10 @@ a:hover { text-decoration: underline; }
 }
 .search-clear:hover { color: var(--text-primary); }
 
+.search-clear:disabled {
+  opacity: 0.45;
+}
+
 /* ============================================================
    Filter Bar
    ============================================================ */
@@ -392,6 +413,9 @@ a:hover { text-decoration: underline; }
 .filter-chip:hover {
   color: var(--text-primary);
   border-color: var(--border-bright);
+}
+.filter-chip:disabled {
+  opacity: 0.45;
 }
 .filter-chip--active {
   /* color + borderColor set inline per category */
@@ -438,6 +462,22 @@ a:hover { text-decoration: underline; }
   transition: opacity var(--ease-fast);
 }
 .filter-reset:hover { opacity: 1; }
+.filter-reset:disabled { opacity: 0.45; }
+
+.sequence-banner {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-secondary);
+  color: var(--accent);
+  font-family: var(--font-condensed);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.sequence-banner--error {
+  color: #e55;
+}
 
 /* ============================================================
    Panel List Header
@@ -474,6 +514,7 @@ a:hover { text-decoration: underline; }
 }
 .sort-select:hover { color: var(--text-primary); }
 .sort-select option { background: var(--bg-elevated); }
+.sort-select:disabled { opacity: 0.45; }
 
 /* ============================================================
    Panel List
@@ -515,6 +556,9 @@ a:hover { text-decoration: underline; }
 .list-item--selected {
   background: var(--bg-selected) !important;
 }
+.list-item--dragging {
+  opacity: 0.55;
+}
 .list-item--selected::before {
   content: '';
   position: absolute;
@@ -528,6 +572,25 @@ a:hover { text-decoration: underline; }
 .list-item:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: -1px;
+}
+
+.list-item--drop-before::after,
+.list-item--drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  z-index: 2;
+}
+
+.list-item--drop-before::after {
+  top: 0;
+}
+
+.list-item--drop-after::after {
+  bottom: 0;
 }
 
 .list-item-indicator {
@@ -553,6 +616,32 @@ a:hover { text-decoration: underline; }
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 3px;
+}
+
+.list-item-title-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+}
+
+.list-item-sequence {
+  width: 18px;
+  flex-shrink: 0;
+  font-family: var(--font-condensed);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-align: right;
+}
+
+.list-item-drag {
+  flex-shrink: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: -0.05em;
 }
 
 .list-item-title {
@@ -928,6 +1017,31 @@ a:hover { text-decoration: underline; }
   color: var(--text-dim);
 }
 .form-select option { background: var(--bg-elevated); }
+
+.modal-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-condensed);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.modal-checkbox {
+  margin-bottom: 14px;
+}
+
+.modal-checkbox input {
+  accent-color: var(--accent);
+}
+
+.detail-sequence-toggle {
+  margin-top: 14px;
+  margin-bottom: 0;
+}
 
 .modal-footer {
   display: flex;
@@ -1505,6 +1619,7 @@ a:hover { text-decoration: underline; }
   font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--accent);
+  gap: 8px;
 }
 
 .readonly-edit-btn {

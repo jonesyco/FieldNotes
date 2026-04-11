@@ -30,6 +30,7 @@ export default function MyMapsDrawer({ user, open, onClose }: MyMapsDrawerProps)
 
   const handleOpen = async (id: string) => {
     await loadCollectionForEditing(id);
+    window.history.replaceState({}, '', `?c=${id}`);
     onClose();
   };
 

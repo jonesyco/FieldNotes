@@ -5,6 +5,16 @@ import { updateCollection } from '../lib/collections';
 import type { POI } from '../types';
 import type { Category } from '../types/categories';
 
+function getSyncErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.toLowerCase().includes('row-level security')) {
+    return 'LIVE SYNC FAILED - Supabase rejected the save. Apply the README SQL migration for owner updates, then reload.';
+  }
+
+  return 'LIVE SYNC FAILED - Changes are local only until Supabase saves succeed.';
+}
+
 /**
  * Syncs the active collection with Supabase:
  * - Subscribes to Realtime updates from other collaborators.
@@ -18,7 +28,7 @@ import type { Category } from '../types/categories';
  *                     initial set-pois doesn't trigger a spurious save.
  */
 export function useCollectionSync() {
-  const { pois, collectionId, activeCategories, replacePois } = usePOIStore();
+  const { pois, collectionId, activeCategories, replacePois, isReadOnly, setSyncError, sequenceEnabled } = usePOIStore();
 
   const skipNextRealtimeRef = useRef(false);
   const remoteUpdateRef = useRef(false);
@@ -41,18 +51,19 @@ export function useCollectionSync() {
             return;
           }
           remoteUpdateRef.current = true;
-          const row = payload.new as { pois: POI[]; categories?: Category[] };
-          replacePois(row.pois, row.categories);
+          const row = payload.new as { pois: POI[]; categories?: Category[]; sequence_enabled?: boolean };
+          replacePois(row.pois, row.categories, row.sequence_enabled);
+          setSyncError(null);
         }
       )
       .subscribe();
 
     return () => { supabase!.removeChannel(channel); };
-  }, [collectionId]);
+  }, [collectionId, replacePois, setSyncError]);
 
   // Debounced auto-save — fires after local edits settle
   useEffect(() => {
-    if (!collectionId || !isSupabaseConfigured) return;
+    if (!collectionId || !isSupabaseConfigured || isReadOnly) return;
 
     // Skip the initial trigger that fires when a collection is first loaded
     if (prevCollectionIdRef.current !== collectionId) {
@@ -70,13 +81,15 @@ export function useCollectionSync() {
     saveTimerRef.current = setTimeout(async () => {
       skipNextRealtimeRef.current = true;
       try {
-        await updateCollection(collectionId, pois, activeCategories);
+        await updateCollection(collectionId, pois, sequenceEnabled, activeCategories);
+        setSyncError(null);
       } catch (err) {
         console.error('Auto-save failed:', err);
+        setSyncError(getSyncErrorMessage(err));
         skipNextRealtimeRef.current = false;
       }
     }, 1500);
 
     return () => clearTimeout(saveTimerRef.current);
-  }, [pois, activeCategories, collectionId]);
+  }, [pois, activeCategories, collectionId, isReadOnly, sequenceEnabled, setSyncError]);
 }

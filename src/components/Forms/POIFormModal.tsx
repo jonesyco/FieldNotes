@@ -36,6 +36,7 @@ export default function POIFormModal({
   const [group, setGroup] = useState(poi?.group ?? '');
   const [photoUrl, setPhotoUrl] = useState(poi?.photoUrl ?? '');
   const [websiteUrl, setWebsiteUrl] = useState(poi?.websiteUrl ?? '');
+  const [includeInSequence, setIncludeInSequence] = useState(poi?.includeInSequence ?? true);
 
   // Derive existing group names for the datalist
   const existingGroups = useMemo(
@@ -51,26 +52,28 @@ export default function POIFormModal({
       .filter(Boolean);
 
     if (mode === 'add' && lat != null && lng != null) {
-      addPOI({
-        title,
-        description,
-        category,
-        tags: parsedTags,
-        neighborhood,
-        group: group.trim() || undefined,
+        addPOI({
+          title,
+          description,
+          category,
+          includeInSequence,
+          tags: parsedTags,
+          neighborhood,
+          group: group.trim() || undefined,
         lat,
         lng,
         photoUrl: photoUrl || undefined,
         websiteUrl: websiteUrl || undefined,
       });
     } else if (mode === 'edit' && poi) {
-      updatePOI(poi.id, {
-        title,
-        description,
-        category,
-        tags: parsedTags,
-        neighborhood,
-        group: group.trim() || undefined,
+        updatePOI(poi.id, {
+          title,
+          description,
+          category,
+          includeInSequence,
+          tags: parsedTags,
+          neighborhood,
+          group: group.trim() || undefined,
         photoUrl: photoUrl || undefined,
         websiteUrl: websiteUrl || undefined,
       });
@@ -235,6 +238,15 @@ export default function POIFormModal({
               placeholder="https://..."
             />
           </div>
+
+          <label className="modal-checkbox">
+            <input
+              type="checkbox"
+              checked={includeInSequence}
+              onChange={(e) => setIncludeInSequence(e.target.checked)}
+            />
+            <span>INCLUDE IN SEQUENCE MAP</span>
+          </label>
 
           <div className="modal-footer">
             <button

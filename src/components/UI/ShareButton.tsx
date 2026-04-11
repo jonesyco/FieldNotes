@@ -10,7 +10,7 @@ interface ShareButtonProps {
 }
 
 export default function ShareButton({ userId, mode = 'share' }: ShareButtonProps) {
-  const { pois, setIsSaving, setCollectionId, activeCategories, collectionId } = usePOIStore();
+  const { pois, setIsSaving, setCollectionId, activeCategories, collectionId, sequenceEnabled } = usePOIStore();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
   const [open, setOpen] = useState(false);
@@ -31,7 +31,7 @@ export default function ShareButton({ userId, mode = 'share' }: ShareButtonProps
     }
     setIsSaving(true);
     try {
-      const id = await saveCollection(pois, undefined, userId, activeCategories);
+      const id = await saveCollection(pois, undefined, userId, activeCategories, sequenceEnabled);
       setCollectionId(id);
       const url = buildUrl(id);
       setShareUrl(url);
@@ -49,7 +49,7 @@ export default function ShareButton({ userId, mode = 'share' }: ShareButtonProps
     if (!isSupabaseConfigured) return;
     setIsSaving(true);
     try {
-      const id = await saveCollection(pois, undefined, userId, activeCategories);
+      const id = await saveCollection(pois, undefined, userId, activeCategories, sequenceEnabled);
       setCollectionId(id);
       const url = buildUrl(id);
       window.history.replaceState({}, '', `?c=${id}`);
@@ -126,7 +126,7 @@ export default function ShareButton({ userId, mode = 'share' }: ShareButtonProps
               {copying ? '✓ COPIED' : 'COPY'}
             </button>
           </div>
-          <p className="share-popup-note">Anyone with this link can view and edit your map.</p>
+          <p className="share-popup-note">Signed-in owners can keep editing this live map; everyone else gets a read-only view.</p>
         </div>
       )}
     </div>

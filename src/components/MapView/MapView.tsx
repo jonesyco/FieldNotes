@@ -4,6 +4,7 @@ import { usePOIStore } from '../../store/poiStore';
 import { getCategoryColorById } from '../../types/categories';
 import { PORTLAND_CENTER, PORTLAND_DEFAULT_ZOOM } from '../../utils/geo';
 import type { Theme } from '../../hooks/useTheme';
+import type { RouteGeometry } from '../../types';
 
 const MAP_STYLES: Record<Theme, string> = {
   dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
@@ -68,6 +69,91 @@ const SKY_COLORS: Record<Theme, maplibregl.SkySpecification> = {
   light: { 'sky-color': '#87CEEB', 'horizon-color': '#b8d4f0', 'fog-color': '#c9e4f8' },
 };
 
+const ROUTE_SOURCE_ID = 'fieldnotes-sequence-route';
+const ROUTE_HIGHLIGHT_SOURCE_ID = 'fieldnotes-sequence-route-highlight-source';
+const ROUTE_CASING_LAYER_ID = 'fieldnotes-sequence-route-casing';
+const ROUTE_LAYER_ID = 'fieldnotes-sequence-route-line';
+const ROUTE_HIGHLIGHT_LAYER_ID = 'fieldnotes-sequence-route-highlight';
+const ROUTE_COLORS: Record<Theme, { line: string; casing: string; highlight: string }> = {
+  dark: { line: '#ff9b54', casing: '#201008', highlight: '#fff4e6' },
+  light: { line: '#d95f02', casing: '#ffffff', highlight: '#fff7cf' },
+};
+const ROUTE_HIGHLIGHT_WINDOW = 0.16;
+const ROUTE_ANIMATION_DURATION_MS = 2800;
+
+function getSegmentDistance(a: [number, number], b: [number, number]) {
+  return Math.hypot(b[0] - a[0], b[1] - a[1]);
+}
+
+function interpolateCoordinate(a: [number, number], b: [number, number], t: number): [number, number] {
+  return [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+  ];
+}
+
+function getPointAtDistance(
+  coordinates: [number, number][],
+  cumulativeDistances: number[],
+  targetDistance: number
+): [number, number] {
+  if (targetDistance <= 0) return coordinates[0];
+  const totalDistance = cumulativeDistances[cumulativeDistances.length - 1];
+  if (targetDistance >= totalDistance) return coordinates[coordinates.length - 1];
+
+  for (let index = 0; index < coordinates.length - 1; index += 1) {
+    const segmentStart = cumulativeDistances[index];
+    const segmentEnd = cumulativeDistances[index + 1];
+    if (targetDistance <= segmentEnd) {
+      const segmentLength = segmentEnd - segmentStart;
+      if (segmentLength === 0) return coordinates[index];
+      const ratio = (targetDistance - segmentStart) / segmentLength;
+      return interpolateCoordinate(coordinates[index], coordinates[index + 1], ratio);
+    }
+  }
+
+  return coordinates[coordinates.length - 1];
+}
+
+function buildRouteHighlightSegment(route: RouteGeometry, progress: number): RouteGeometry | null {
+  const coordinates = route.coordinates;
+  if (coordinates.length < 2) return null;
+
+  const cumulativeDistances = [0];
+  for (let index = 1; index < coordinates.length; index += 1) {
+    cumulativeDistances.push(
+      cumulativeDistances[index - 1] + getSegmentDistance(coordinates[index - 1], coordinates[index])
+    );
+  }
+
+  const totalDistance = cumulativeDistances[cumulativeDistances.length - 1];
+  if (totalDistance === 0) return null;
+
+  const halfWindow = ROUTE_HIGHLIGHT_WINDOW / 2;
+  const startDistance = Math.max(0, progress - halfWindow) * totalDistance;
+  const endDistance = Math.min(1, progress + halfWindow) * totalDistance;
+
+  const highlightCoordinates: [number, number][] = [
+    getPointAtDistance(coordinates, cumulativeDistances, startDistance),
+  ];
+
+  for (let index = 1; index < coordinates.length - 1; index += 1) {
+    const pointDistance = cumulativeDistances[index];
+    if (pointDistance > startDistance && pointDistance < endDistance) {
+      highlightCoordinates.push(coordinates[index]);
+    }
+  }
+
+  highlightCoordinates.push(getPointAtDistance(coordinates, cumulativeDistances, endDistance));
+
+  if (highlightCoordinates.length < 2) return null;
+
+  return {
+    type: 'LineString',
+    coordinates: highlightCoordinates,
+  };
+}
+
 interface MapViewProps {
   onMapClick: (lat: number, lng: number) => void;
   theme: Theme;
@@ -81,7 +167,22 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
   const [buildings3D, setBuildings3D] = useState(false);
   const [terrain, setTerrain] = useState(false);
 
-  const { pois, selectedPOI, hoveredPOIId, addingMode, setMapBounds, highlightedGroup, relocatingPOI, activeCategories, pendingFlyTo, setFlyTo, searchPreview, setSearchReturnTarget } = usePOIStore();
+  const {
+    pois,
+    selectedPOI,
+    hoveredPOIId,
+    addingMode,
+    setMapBounds,
+    highlightedGroup,
+    relocatingPOI,
+    activeCategories,
+    pendingFlyTo,
+    setFlyTo,
+    searchPreview,
+    setSearchReturnTarget,
+    sequenceEnabled,
+    routeGeometry,
+  } = usePOIStore();
 
   // Refs so callbacks and effects always read current values without stale closures
   const addingModeRef = useRef(addingMode);
@@ -96,6 +197,8 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
   const hoveredPOIIdRef = useRef(hoveredPOIId);
   const highlightedGroupRef = useRef(highlightedGroup);
   const activeCategoriesRef = useRef(activeCategories);
+  const sequenceEnabledRef = useRef(sequenceEnabled);
+  const routeGeometryRef = useRef<RouteGeometry | null>(routeGeometry);
   useEffect(() => {
     addingModeRef.current = addingMode;
     relocatingPOIRef.current = relocatingPOI;
@@ -109,8 +212,10 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     hoveredPOIIdRef.current = hoveredPOIId;
     highlightedGroupRef.current = highlightedGroup;
     activeCategoriesRef.current = activeCategories;
+    sequenceEnabledRef.current = sequenceEnabled;
+    routeGeometryRef.current = routeGeometry;
   }, [addingMode, relocatingPOI, onMapClick, buildings3D, terrain, theme, initialCenter,
-    pois, selectedPOI, hoveredPOIId, highlightedGroup, activeCategories]);
+    pois, selectedPOI, hoveredPOIId, highlightedGroup, activeCategories, sequenceEnabled, routeGeometry]);
 
   // Add the fill-extrusion layer on top of existing building layers
   const addBuildingExtrusion = useCallback((m: maplibregl.Map, t: Theme) => {
@@ -163,6 +268,112 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     m.setSky(SKY_COLORS[t]);
     m.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.5 });
   }, []);
+
+  const moveRouteLayersToTop = useCallback((m: maplibregl.Map) => {
+    if (m.getLayer(ROUTE_CASING_LAYER_ID)) m.moveLayer(ROUTE_CASING_LAYER_ID);
+    if (m.getLayer(ROUTE_LAYER_ID)) m.moveLayer(ROUTE_LAYER_ID);
+    if (m.getLayer(ROUTE_HIGHLIGHT_LAYER_ID)) m.moveLayer(ROUTE_HIGHLIGHT_LAYER_ID);
+  }, []);
+
+  const removeRouteLayers = useCallback((m: maplibregl.Map) => {
+    if (m.getLayer(ROUTE_HIGHLIGHT_LAYER_ID)) m.removeLayer(ROUTE_HIGHLIGHT_LAYER_ID);
+    if (m.getLayer(ROUTE_LAYER_ID)) m.removeLayer(ROUTE_LAYER_ID);
+    if (m.getLayer(ROUTE_CASING_LAYER_ID)) m.removeLayer(ROUTE_CASING_LAYER_ID);
+    if (m.getSource(ROUTE_HIGHLIGHT_SOURCE_ID)) m.removeSource(ROUTE_HIGHLIGHT_SOURCE_ID);
+    if (m.getSource(ROUTE_SOURCE_ID)) m.removeSource(ROUTE_SOURCE_ID);
+  }, []);
+
+  const upsertRouteLayers = useCallback((m: maplibregl.Map, t: Theme, route: RouteGeometry) => {
+    const routeData = {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: route,
+    };
+
+    const existingSource = m.getSource(ROUTE_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+    if (existingSource) {
+      existingSource.setData(routeData);
+    } else {
+      m.addSource(ROUTE_SOURCE_ID, {
+        type: 'geojson',
+        data: routeData,
+      });
+    }
+
+    const initialHighlightData = {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: buildRouteHighlightSegment(route, ROUTE_HIGHLIGHT_WINDOW / 2) ?? route,
+    };
+    const existingHighlightSource = m.getSource(ROUTE_HIGHLIGHT_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+    if (existingHighlightSource) {
+      existingHighlightSource.setData(initialHighlightData);
+    } else {
+      m.addSource(ROUTE_HIGHLIGHT_SOURCE_ID, {
+        type: 'geojson',
+        data: initialHighlightData,
+      });
+    }
+
+    const colors = ROUTE_COLORS[t];
+
+    if (!m.getLayer(ROUTE_CASING_LAYER_ID)) {
+      m.addLayer({
+        id: ROUTE_CASING_LAYER_ID,
+        type: 'line',
+        source: ROUTE_SOURCE_ID,
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+        },
+        paint: {
+          'line-color': colors.casing,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 5, 12, 8, 16, 12],
+          'line-opacity': 0.9,
+        },
+      });
+    }
+
+    if (!m.getLayer(ROUTE_LAYER_ID)) {
+      m.addLayer({
+        id: ROUTE_LAYER_ID,
+        type: 'line',
+        source: ROUTE_SOURCE_ID,
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+        },
+        paint: {
+          'line-color': colors.line,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 2.5, 12, 4, 16, 6],
+          'line-opacity': 0.95,
+        },
+      });
+    }
+
+    if (!m.getLayer(ROUTE_HIGHLIGHT_LAYER_ID)) {
+      m.addLayer({
+        id: ROUTE_HIGHLIGHT_LAYER_ID,
+        type: 'line',
+        source: ROUTE_HIGHLIGHT_SOURCE_ID,
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+        },
+        paint: {
+          'line-color': colors.highlight,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 4, 12, 6, 16, 8],
+          'line-opacity': 1,
+          'line-blur': 0.6,
+        },
+      });
+    }
+
+    m.setPaintProperty(ROUTE_CASING_LAYER_ID, 'line-color', colors.casing);
+    m.setPaintProperty(ROUTE_LAYER_ID, 'line-color', colors.line);
+    m.setPaintProperty(ROUTE_HIGHLIGHT_LAYER_ID, 'line-color', colors.highlight);
+    moveRouteLayersToTop(m);
+  }, [moveRouteLayersToTop]);
 
   const removeTerrain = useCallback((m: maplibregl.Map) => {
     m.setTerrain(null);
@@ -227,6 +438,9 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       if (terrainRef.current) {
         addTerrain(m, themeRef.current);
       }
+      if (sequenceEnabledRef.current && routeGeometryRef.current) {
+        upsertRouteLayers(m, themeRef.current, routeGeometryRef.current);
+      }
     });
 
     return () => {
@@ -236,7 +450,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       m.remove();
       map.current = null;
     };
-  }, [setMapBounds, addBuildingExtrusion, addTerrain]);
+  }, [setMapBounds, addBuildingExtrusion, addTerrain, upsertRouteLayers]);
 
   // Switch map style when theme changes (skip first render — already set at init)
   const isFirstRender = useRef(true);
@@ -273,12 +487,15 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     if (next) {
       // Tilt and zoom in slightly so buildings are dramatic
       m.easeTo({ pitch: BUILDING_PITCH, zoom: Math.max(m.getZoom(), 15), duration: 600 });
-      if (m.isStyleLoaded()) addBuildingExtrusion(m, themeRef.current);
+      if (m.isStyleLoaded()) {
+        addBuildingExtrusion(m, themeRef.current);
+        moveRouteLayersToTop(m);
+      }
     } else {
       m.easeTo({ pitch: 0, duration: 500 });
       if (m.getLayer(BUILDING_LAYER_ID)) m.removeLayer(BUILDING_LAYER_ID);
     }
-  }, [addBuildingExtrusion]);
+  }, [addBuildingExtrusion, moveRouteLayersToTop]);
 
   // Update cursor based on adding/relocating mode
   useEffect(() => {
@@ -340,6 +557,47 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       duration: 700,
     });
   }, [selectedPOI?.id]);
+
+  useEffect(() => {
+    if (!map.current || !map.current.isStyleLoaded()) return;
+
+    if (!sequenceEnabled || !routeGeometry) {
+      removeRouteLayers(map.current);
+      return;
+    }
+
+    upsertRouteLayers(map.current, theme, routeGeometry);
+  }, [sequenceEnabled, routeGeometry, theme, removeRouteLayers, upsertRouteLayers]);
+
+  useEffect(() => {
+    if (!sequenceEnabled || !routeGeometry || !map.current) return;
+
+    let animationFrameId = 0;
+    let startTime: number | null = null;
+    const animate = (timestamp: number) => {
+      const m = map.current;
+      if (!m?.getLayer(ROUTE_HIGHLIGHT_LAYER_ID)) {
+        animationFrameId = window.requestAnimationFrame(animate);
+        return;
+      }
+
+      if (startTime === null) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = (elapsed % ROUTE_ANIMATION_DURATION_MS) / ROUTE_ANIMATION_DURATION_MS;
+      const highlightSource = m.getSource(ROUTE_HIGHLIGHT_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+      if (highlightSource) {
+        highlightSource.setData({
+          type: 'Feature',
+          properties: {},
+          geometry: buildRouteHighlightSegment(routeGeometry, progress) ?? routeGeometry,
+        });
+      }
+      animationFrameId = window.requestAnimationFrame(animate);
+    };
+    animationFrameId = window.requestAnimationFrame(animate);
+
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [sequenceEnabled, routeGeometry, theme]);
 
   // Fly to geocoded location from LocationSearch
   useEffect(() => {

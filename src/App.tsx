@@ -6,17 +6,21 @@ import DetailDrawer from './components/Detail/DetailDrawer';
 import POIFormModal from './components/Forms/POIFormModal';
 import TourModal from './components/Tour/TourModal';
 import { usePOIStore } from './store/poiStore';
+import { useAuth } from './hooks/useAuth';
 import { useTheme } from './hooks/useTheme';
 import { useCollectionSync } from './hooks/useCollectionSync';
+import { useSequenceRoute } from './hooks/useSequenceRoute';
 import type { POI } from './types';
 
 export default function App() {
   const { theme, toggleTheme } = useTheme();
+  const auth = useAuth();
   const { addingMode, setAddingMode, editingPOI, setEditingPOI, pois, importPOIs,
-          loadSharedCollection, relocatingPOI, setRelocatingPOI, updatePOI, selectPOI, isReadOnly,
-          searchPreview, setSearchPreview, searchReturnTarget, setFlyTo } =
+           loadSharedCollection, relocatingPOI, setRelocatingPOI, updatePOI, selectPOI, isReadOnly,
+           searchPreview, setSearchPreview, searchReturnTarget, setFlyTo } =
     usePOIStore();
   useCollectionSync();
+  useSequenceRoute();
 
   const [addCoords, setAddCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [initialCenter, setInitialCenter] = useState<[number, number] | null>(null);
@@ -24,10 +28,12 @@ export default function App() {
 
   // On mount: check for shared collection URL param, and get geolocation
   useEffect(() => {
+    if (auth.loading) return;
+
     const params = new URLSearchParams(window.location.search);
     const collectionId = params.get('c');
     if (collectionId) {
-      loadSharedCollection(collectionId);
+      loadSharedCollection(collectionId, auth.user?.id);
     }
 
     // Get user's location for initial map center
@@ -37,10 +43,12 @@ export default function App() {
         () => setInitialCenter(null) // fall back to default
       );
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [auth.loading, auth.user?.id, loadSharedCollection]);
 
   const handleMapClick = useCallback(
     (lat: number, lng: number) => {
+      if (isReadOnly) return;
+
       if (relocatingPOI) {
         updatePOI(relocatingPOI.id, { lat, lng });
         selectPOI({ ...relocatingPOI, lat, lng });
@@ -50,13 +58,16 @@ export default function App() {
         setAddingMode(false);
       }
     },
-    [relocatingPOI, addingMode, setAddingMode, updatePOI, selectPOI, setRelocatingPOI]
+    [isReadOnly, relocatingPOI, addingMode, setAddingMode, updatePOI, selectPOI, setRelocatingPOI]
   );
 
-  const handleAddPOI = () => setAddingMode(true);
+  const handleAddPOI = () => {
+    if (isReadOnly) return;
+    setAddingMode(true);
+  };
 
   const handleAddFromSearch = () => {
-    if (!searchPreview) return;
+    if (isReadOnly || !searchPreview) return;
     setAddCoords({ lat: searchPreview.lat, lng: searchPreview.lng });
     setSearchPreview(null);
   };
@@ -82,9 +93,14 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = () => importInputRef.current?.click();
+  const handleImport = () => {
+    if (isReadOnly) return;
+    importInputRef.current?.click();
+  };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly) return;
+
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -104,6 +120,7 @@ export default function App() {
   return (
     <div className="app-layout">
       <SidePanel
+        auth={auth}
         onAddPOI={handleAddPOI}
         onExport={handleExport}
         onImport={handleImport}
@@ -121,13 +138,13 @@ export default function App() {
             <button onClick={handleDismissSearch}>✕ DISMISS</button>
           </div>
         )}
-        {addingMode && (
+        {!isReadOnly && addingMode && (
           <div className="add-mode-banner" role="status">
             <span>CLICK MAP TO PLACE NEW LOCATION</span>
             <button onClick={() => setAddingMode(false)}>CANCEL</button>
           </div>
         )}
-        {relocatingPOI && (
+        {!isReadOnly && relocatingPOI && (
           <div className="add-mode-banner add-mode-banner--move" role="status">
             <span>CLICK MAP TO MOVE "{relocatingPOI.title.toUpperCase()}"</span>
             <button onClick={() => setRelocatingPOI(null)}>CANCEL</button>

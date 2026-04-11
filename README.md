@@ -25,11 +25,11 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:5173** — the map opens centered on your current location (or Portland as fallback) with seed POIs pre-loaded. A brief interactive tour walks first-time users through the core features on their first visit.
+Open **http://localhost:5173** — the map opens centered on your current location (or Portland as fallback). A brief interactive tour walks first-time users through the core features on their first visit.
 
 ## Sharing (Supabase Setup)
 
-The **↗ SHARE** button saves your current POIs to Supabase and generates a shareable URL (`?c=<id>`). Anyone opening that link sees your map in read-only view.
+The **↗ SHARE** button saves your current POIs to Supabase and generates a shareable URL (`?c=<id>`). Signed-in owners who open that URL can keep editing the same live map; everyone else sees a read-only view and can fork their own copy.
 
 ### 1 — Create a Supabase project
 
@@ -41,6 +41,9 @@ create table collections (
   id text primary key,
   title text,
   pois jsonb not null default '[]',
+  categories jsonb not null default '[]',
+  sequence_enabled boolean not null default false,
+  user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -48,6 +51,11 @@ create table collections (
 alter table collections enable row level security;
 create policy "Public read"   on collections for select using (true);
 create policy "Public insert" on collections for insert with check (true);
+create policy "Owner update"  on collections for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+alter publication supabase_realtime add table collections;
 ```
 
 ### 2 — Add your credentials
@@ -96,6 +104,7 @@ The ↗ SHARE button will now be active. Without credentials, the app runs fully
 - **In View** — show only POIs currently visible on the map
 - **Favorites only** — filter to starred POIs
 - **Sort** — newest, alphabetical, category, area
+- **Sequence Map** — switch to manual stop ordering, drag locations vertically, choose which locations are included, and draw an animated driving route that follows the checked stops in list order
 
 ### Sharing
 - **↗ SHARE** — saves all current POIs to Supabase, updates the URL, shows a copyable link
@@ -110,12 +119,11 @@ The ↗ SHARE button will now be active. Without credentials, the app runs fully
 src/
   lib/            Supabase client + collections API
   types/          TypeScript interfaces + constants
-  data/           Seed POIs
   store/          Zustand store (CRUD, filters, map state, collection loading)
-  hooks/          useTheme (light/dark mode, defaults to light)
+  hooks/          useTheme, collection sync, sequence routing
   utils/          Filter/sort logic, geo constants
   components/
-    MapView/      MapLibre GL JS wrapper (map, markers, 3D, water/green colors)
+    MapView/      MapLibre GL JS wrapper (map, markers, 3D, terrain, route overlays)
     Panel/        SidePanel, POIListItem, FilterBar
     Detail/       DetailDrawer
     Forms/        Add/Edit modal

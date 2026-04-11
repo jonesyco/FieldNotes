@@ -2,7 +2,17 @@ import { usePOIStore } from '../../store/poiStore';
 import { getCategoryColorById, getCategoryLabelById } from '../../types/categories';
 
 export default function DetailDrawer() {
-  const { selectedPOI, selectPOI, toggleFavorite, deletePOI, setEditingPOI, setRelocatingPOI, activeCategories } =
+  const {
+    selectedPOI,
+    selectPOI,
+    toggleFavorite,
+    toggleSequenceInclusion,
+    deletePOI,
+    setEditingPOI,
+    setRelocatingPOI,
+    activeCategories,
+    isReadOnly,
+  } =
     usePOIStore();
 
   if (!selectedPOI) return null;
@@ -78,32 +88,44 @@ export default function DetailDrawer() {
         <div className="detail-coords">
           {selectedPOI.lat.toFixed(5)}, {selectedPOI.lng.toFixed(5)}
         </div>
+
+        <label className="modal-checkbox detail-sequence-toggle">
+          <input
+            type="checkbox"
+            checked={selectedPOI.includeInSequence}
+            onChange={() => toggleSequenceInclusion(selectedPOI.id)}
+            disabled={isReadOnly}
+          />
+          <span>INCLUDE IN SEQUENCE MAP</span>
+        </label>
       </div>
 
-      <div className="detail-actions">
-        <button
-          className={`btn-action ${selectedPOI.favorite ? 'btn-favorite-active' : 'btn-secondary'}`}
-          onClick={() => toggleFavorite(selectedPOI.id)}
-        >
-          {selectedPOI.favorite ? '★ SAVED' : '☆ SAVE'}
-        </button>
-        <button
-          className="btn-action btn-secondary"
-          onClick={() => setEditingPOI(selectedPOI)}
-        >
-          ✎ EDIT
-        </button>
-        <button
-          className="btn-action btn-secondary"
-          onClick={() => { setRelocatingPOI(selectedPOI); selectPOI(null); }}
-          title="Click a new spot on the map to move this pin"
-        >
-          ✦ MOVE
-        </button>
-        <button className="btn-action btn-danger" onClick={handleDelete}>
-          ✕ DELETE
-        </button>
-      </div>
+      {!isReadOnly && (
+        <div className="detail-actions">
+          <button
+            className={`btn-action ${selectedPOI.favorite ? 'btn-favorite-active' : 'btn-secondary'}`}
+            onClick={() => toggleFavorite(selectedPOI.id)}
+          >
+            {selectedPOI.favorite ? '★ SAVED' : '☆ SAVE'}
+          </button>
+          <button
+            className="btn-action btn-secondary"
+            onClick={() => setEditingPOI(selectedPOI)}
+          >
+            ✎ EDIT
+          </button>
+          <button
+            className="btn-action btn-secondary"
+            onClick={() => { setRelocatingPOI(selectedPOI); selectPOI(null); }}
+            title="Click a new spot on the map to move this pin"
+          >
+            ✦ MOVE
+          </button>
+          <button className="btn-action btn-danger" onClick={handleDelete}>
+            ✕ DELETE
+          </button>
+        </div>
+      )}
     </div>
   );
 }

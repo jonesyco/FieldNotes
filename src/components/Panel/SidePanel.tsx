@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import type { DragEvent } from 'react';
 import { usePOIStore } from '../../store/poiStore';
 import { filterAndSortPOIs } from '../../utils/filtering';
 import type { SortOption } from '../../types';
 import type { Theme } from '../../hooks/useTheme';
-import { useAuth } from '../../hooks/useAuth';
+import type { AuthState } from '../../hooks/useAuth';
 import FilterBar from './FilterBar';
 import POIListItem from './POIListItem';
 import SearchBar from '../UI/SearchBar';
@@ -14,6 +15,7 @@ import MyMapsDrawer from './MyMapsDrawer';
 import SettingsModal from '../UI/SettingsModal';
 
 interface SidePanelProps {
+  auth: AuthState;
   onAddPOI: () => void;
   onExport: () => void;
   onImport: () => void;
@@ -21,17 +23,83 @@ interface SidePanelProps {
   onToggleTheme: () => void;
 }
 
-export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggleTheme }: SidePanelProps) {
-  const { pois, filter, mapBounds, selectedPOI, selectPOI, hoverPOI, setFilter, collectionId } =
+export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, onToggleTheme }: SidePanelProps) {
+  const {
+    pois,
+    filter,
+    mapBounds,
+    selectedPOI,
+    selectPOI,
+    hoverPOI,
+    setFilter,
+    collectionId,
+    isReadOnly,
+    syncError,
+    sequenceEnabled,
+    setSequenceEnabled,
+    reorderPOIs,
+    routeLoading,
+    routeError,
+  } =
     usePOIStore();
-  const auth = useAuth();
   const [myMapsOpen, setMyMapsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ id: string; placement: 'before' | 'after' } | null>(null);
 
   const filtered = useMemo(
     () => filterAndSortPOIs(pois, filter, mapBounds),
     [pois, filter, mapBounds]
   );
+  const visiblePois = sequenceEnabled ? pois : filtered;
+  const includedSequenceIds = useMemo(
+    () => new Map(
+      pois
+        .filter((poi) => poi.includeInSequence)
+        .map((poi, index) => [poi.id, index + 1])
+    ),
+    [pois]
+  );
+
+  const handleDragStart = useCallback((poiId: string, event: DragEvent<HTMLDivElement>) => {
+    if (!sequenceEnabled || isReadOnly) return;
+    setDraggedId(poiId);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', poiId);
+  }, [sequenceEnabled, isReadOnly]);
+
+  const handleDragOver = useCallback((targetId: string, event: DragEvent<HTMLDivElement>) => {
+    if (!sequenceEnabled || isReadOnly || !draggedId || draggedId === targetId) return;
+
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const placement = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    setDropTarget({ id: targetId, placement });
+    event.dataTransfer.dropEffect = 'move';
+  }, [sequenceEnabled, isReadOnly, draggedId]);
+
+  const handleDrop = useCallback((targetId: string, event: DragEvent<HTMLDivElement>) => {
+    if (!sequenceEnabled || isReadOnly) return;
+
+    event.preventDefault();
+    const sourceId = draggedId ?? event.dataTransfer.getData('text/plain');
+    if (!sourceId || sourceId === targetId) {
+      setDraggedId(null);
+      setDropTarget(null);
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const placement = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    reorderPOIs(sourceId, targetId, placement);
+    setDraggedId(null);
+    setDropTarget(null);
+  }, [sequenceEnabled, isReadOnly, draggedId, reorderPOIs]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedId(null);
+    setDropTarget(null);
+  }, []);
 
   return (
     <aside className="side-panel" aria-label="Points of interest panel">
@@ -40,14 +108,14 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
           <span className="title-text">FieldNotes</span>
         </div>
         <div className="panel-actions">
-          <button className="btn-action btn-add" onClick={onAddPOI}>
+          <button className="btn-action btn-add" onClick={onAddPOI} disabled={isReadOnly}>
             + ADD
           </button>
           <ShareButton userId={auth.user?.id} />
           <button className="btn-action btn-secondary" onClick={onExport}>
             ↓
           </button>
-          <button className="btn-action btn-secondary" onClick={onImport}>
+          <button className="btn-action btn-secondary" onClick={onImport} disabled={isReadOnly}>
             ↑
           </button>
           <button
@@ -55,6 +123,7 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
             onClick={() => setSettingsOpen(true)}
             title="Category settings"
             aria-label="Open category settings"
+            disabled={isReadOnly}
           >
             ⚙
           </button>
@@ -82,26 +151,47 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
 
       {collectionId && (
         <div className="readonly-banner" role="status">
-          <span>● LIVE SHARED MAP</span>
-          <ShareButton userId={auth.user?.id} mode="fork" />
+          <span>{syncError ?? (isReadOnly ? '● SHARED VIEW' : '● LIVE SHARED MAP')}</span>
+          {isReadOnly && <ShareButton userId={auth.user?.id} mode="fork" />}
         </div>
       )}
 
       <div className="panel-search">
-        <SearchBar />
+        <SearchBar disabled={sequenceEnabled} />
       </div>
 
-      <FilterBar />
+      <div className="sequence-toggle-bar">
+        <label className="filter-toggle">
+          <input
+            type="checkbox"
+            checked={sequenceEnabled}
+            onChange={(event) => setSequenceEnabled(event.target.checked)}
+            disabled={isReadOnly}
+          />
+          <span>↝ SEQUENCE MAP</span>
+        </label>
+      </div>
+
+      <FilterBar disabled={sequenceEnabled} />
+
+      {sequenceEnabled && (
+        <div className={`sequence-banner${routeError ? ' sequence-banner--error' : ''}`} role="status">
+          {routeError ?? (routeLoading ? 'ROUTING ORDERED STOPS...' : 'DRAG LOCATIONS TO REORDER THE ROUTE')}
+        </div>
+      )}
 
       <GroupPanel />
 
       <div className="panel-list-header">
-        <span className="list-count">{filtered.length} LOCATIONS</span>
+        <span className="list-count">
+          {visiblePois.length} {sequenceEnabled ? 'SEQUENCED LOCATIONS' : 'LOCATIONS'}
+        </span>
         <select
           className="sort-select"
           value={filter.sort}
           onChange={(e) => setFilter({ sort: e.target.value as SortOption })}
           aria-label="Sort order"
+          disabled={sequenceEnabled}
         >
           <option value="newest">NEWEST</option>
           <option value="alphabetical">A–Z</option>
@@ -111,14 +201,23 @@ export default function SidePanel({ onAddPOI, onExport, onImport, theme, onToggl
       </div>
 
       <div className="panel-list" role="list" aria-label="POI list">
-        {filtered.length === 0 ? (
+        {visiblePois.length === 0 ? (
           <div className="list-empty">NO RESULTS</div>
         ) : (
-          filtered.map((poi) => (
+          visiblePois.map((poi) => (
             <POIListItem
               key={poi.id}
-              poi={poi}
-              isSelected={selectedPOI?.id === poi.id}
+               poi={poi}
+                isSelected={selectedPOI?.id === poi.id}
+                sequenceNumber={sequenceEnabled ? includedSequenceIds.get(poi.id) : undefined}
+                sequenceMode={sequenceEnabled}
+                draggable={sequenceEnabled && !isReadOnly}
+               isDragSource={draggedId === poi.id}
+              dropPlacement={dropTarget?.id === poi.id ? dropTarget.placement : null}
+              onDragStart={(event) => handleDragStart(poi.id, event)}
+              onDragOver={(event) => handleDragOver(poi.id, event)}
+              onDrop={(event) => handleDrop(poi.id, event)}
+              onDragEnd={handleDragEnd}
               onSelect={() => selectPOI(poi)}
               onHover={hoverPOI}
             />
