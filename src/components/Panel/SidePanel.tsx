@@ -194,12 +194,12 @@ export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, o
           visiblePois.map((poi) => (
             <POIListItem
               key={poi.id}
-               poi={poi}
-                isSelected={selectedPOI?.id === poi.id}
-                sequenceNumber={sequenceEnabled ? includedSequenceIds.get(poi.id) : undefined}
-                sequenceMode={sequenceEnabled}
-                draggable={sequenceEnabled && !isReadOnly}
-               isDragSource={draggedId === poi.id}
+              poi={poi}
+              isSelected={selectedPOI?.id === poi.id}
+              sequenceNumber={sequenceEnabled ? includedSequenceIds.get(poi.id) : undefined}
+              sequenceMode={sequenceEnabled}
+              draggable={sequenceEnabled && !isReadOnly}
+              isDragSource={draggedId === poi.id}
               dropPlacement={dropTarget?.id === poi.id ? dropTarget.placement : null}
               onDragStart={(event) => handleDragStart(poi.id, event)}
               onDragOver={(event) => handleDragOver(poi.id, event)}

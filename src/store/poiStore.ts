@@ -151,9 +151,9 @@ function normalizeFilterState(filter: Partial<FilterState> | undefined): FilterS
     inBoundsOnly: typeof filter?.inBoundsOnly === 'boolean' ? filter.inBoundsOnly : DEFAULT_FILTER.inBoundsOnly,
     sort:
       filter?.sort === 'newest' ||
-      filter?.sort === 'alphabetical' ||
-      filter?.sort === 'tag' ||
-      filter?.sort === 'neighborhood'
+        filter?.sort === 'alphabetical' ||
+        filter?.sort === 'tag' ||
+        filter?.sort === 'neighborhood'
         ? filter.sort
         : DEFAULT_FILTER.sort,
   };
@@ -209,10 +209,10 @@ export const usePOIStore = create<POIStore>()(
           selectedPOI:
             state.selectedPOI?.id === id
               ? {
-                  ...state.selectedPOI,
-                  ...updates,
-                  ...(updates.tags ? { tags: dedupeTags(updates.tags) } : {}),
-                }
+                ...state.selectedPOI,
+                ...updates,
+                ...(updates.tags ? { tags: dedupeTags(updates.tags) } : {}),
+              }
               : state.selectedPOI,
         })),
 

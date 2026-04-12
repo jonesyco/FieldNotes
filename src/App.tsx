@@ -18,8 +18,8 @@ export default function App() {
   const { theme, toggleTheme } = useTheme();
   const auth = useAuth();
   const { addingMode, setAddingMode, editingPOI, setEditingPOI, pois, importPOIs,
-           loadSharedCollection, relocatingPOI, setRelocatingPOI, updatePOI, selectPOI, isReadOnly,
-        searchPreview, setSearchPreview, searchReturnTarget, setFlyTo, upsideDownMode } =
+    loadSharedCollection, relocatingPOI, setRelocatingPOI, updatePOI, selectPOI, isReadOnly,
+    searchPreview, setSearchPreview, searchReturnTarget, setFlyTo, upsideDownMode } =
     usePOIStore();
   useCollectionSync();
   useSequenceRoute();
