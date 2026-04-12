@@ -16,7 +16,7 @@ const STEPS = [
           every place that matters to you.
         </p>
         <p className="tour-body-text">
-          Drop pins anywhere on the globe, tag them by category, search and filter
+          Drop pins anywhere on the globe, organize them with tags, search and filter
           your collection, and share curated maps with anyone — no account required.
           Your data lives in your browser and travels with a single link.
         </p>
@@ -93,8 +93,8 @@ const STEPS = [
     content: (
       <div className="tour-pins-content">
         <p className="tour-body-text">
-          Pins are the heart of FieldNotes. Each pin stores a title, category,
-          description, tags, neighborhood, photo, and website link.
+          Pins are the heart of FieldNotes. Each pin stores a title, description,
+          tags, neighborhood, photo, and website link.
         </p>
         <div className="tour-action-list">
           <div className="tour-action-row">

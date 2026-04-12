@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import type { FormEvent } from 'react';
 import { usePOIStore } from '../../store/poiStore';
 import type { POI } from '../../types';
-import type { CategoryId } from '../../types/categories';
+import { collectTagsFromPois, dedupeTags } from '../../utils/tags';
 
 interface POIFormModalProps {
   mode: 'add' | 'edit';
@@ -26,11 +26,10 @@ export default function POIFormModal({
   poi,
   onClose,
 }: POIFormModalProps) {
-  const { addPOI, updatePOI, pois, activeCategories } = usePOIStore();
+  const { addPOI, updatePOI, pois } = usePOIStore();
 
   const [title, setTitle] = useState(poi?.title ?? '');
   const [description, setDescription] = useState(poi?.description ?? '');
-  const [category, setCategory] = useState<CategoryId>(poi?.category ?? 'other');
   const [tags, setTags] = useState(poi?.tags.join(', ') ?? '');
   const [neighborhood, setNeighborhood] = useState(poi?.neighborhood ?? '');
   const [group, setGroup] = useState(poi?.group ?? '');
@@ -38,11 +37,60 @@ export default function POIFormModal({
   const [websiteUrl, setWebsiteUrl] = useState(poi?.websiteUrl ?? '');
   const [includeInSequence, setIncludeInSequence] = useState(poi?.includeInSequence ?? true);
 
+  const existingTags = useMemo(() => collectTagsFromPois(pois), [pois]);
+
+  const tagSuggestions = useMemo(() => {
+    const rawTagParts = tags.split(',');
+    const selectedTags = new Set(
+      rawTagParts
+        .slice(0, -1)
+        .map((tag) => tag.trim().toLowerCase())
+        .filter(Boolean)
+    );
+    const currentToken = rawTagParts.at(-1)?.trim().toLowerCase() ?? '';
+
+    if (!currentToken) return [];
+
+    return existingTags
+      .filter((tag) => {
+        const normalizedTag = tag.toLowerCase();
+        if (selectedTags.has(normalizedTag)) return false;
+        if (!currentToken) return true;
+        return normalizedTag.includes(currentToken);
+      })
+      .slice(0, 8);
+  }, [existingTags, tags]);
+
   // Derive existing group names for the datalist
   const existingGroups = useMemo(
     () => Array.from(new Set(pois.map((p) => p.group).filter(Boolean))).sort(),
     [pois]
   );
+
+  const handleTagSuggestionClick = (suggestedTag: string) => {
+    const parts = tags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    const normalizedSuggestion = suggestedTag.toLowerCase();
+    const nextTags = parts.filter((tag) => tag.toLowerCase() !== normalizedSuggestion);
+
+    const endsWithComma = tags.trimEnd().endsWith(',');
+    const shouldReplaceLast =
+      !endsWithComma &&
+      tags.trim().length > 0 &&
+      (tags.includes(',') || nextTags.length > 0 || tags.trim().length > 0);
+
+    if (shouldReplaceLast && nextTags.length > 0) {
+      const lastTag = nextTags[nextTags.length - 1];
+      if (lastTag && !existingTags.some((tag) => tag.toLowerCase() === lastTag.toLowerCase())) {
+        nextTags.pop();
+      }
+    }
+
+    nextTags.push(suggestedTag);
+    setTags(`${nextTags.join(', ')}, `);
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -50,14 +98,14 @@ export default function POIFormModal({
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean);
+    const normalizedTags = dedupeTags(parsedTags);
 
     if (mode === 'add' && lat != null && lng != null) {
         addPOI({
           title,
           description,
-          category,
           includeInSequence,
-          tags: parsedTags,
+          tags: normalizedTags,
           neighborhood,
           group: group.trim() || undefined,
         lat,
@@ -69,9 +117,8 @@ export default function POIFormModal({
         updatePOI(poi.id, {
           title,
           description,
-          category,
           includeInSequence,
-          tags: parsedTags,
+          tags: normalizedTags,
           neighborhood,
           group: group.trim() || undefined,
         photoUrl: photoUrl || undefined,
@@ -124,25 +171,6 @@ export default function POIFormModal({
 
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label" htmlFor="poi-category">
-                CATEGORY <span className="form-required">*</span>
-              </label>
-              <select
-                id="poi-category"
-                className="form-select"
-                value={category}
-                onChange={(e) => setCategory(e.target.value as CategoryId)}
-                required
-              >
-                {activeCategories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
               <label className="form-label" htmlFor="poi-neighborhood">
                 NEIGHBORHOOD <span className="form-required">*</span>
               </label>
@@ -188,7 +216,24 @@ export default function POIFormModal({
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder="e.g. coffee, outdoor, late-night"
+              autoComplete="new-password"
+              name="fieldnotes-tag-editor"
+              spellCheck={false}
             />
+            {tagSuggestions.length > 0 && (
+              <div className="tag-suggestions" aria-label="Suggested tags from current locations">
+                {tagSuggestions.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    className="tag-chip tag-chip--button"
+                    onClick={() => handleTagSuggestionClick(tag)}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="form-group">

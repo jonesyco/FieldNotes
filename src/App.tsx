@@ -129,7 +129,7 @@ export default function App() {
       />
 
       <main className="map-area">
-        <MapView onMapClick={handleMapClick} theme={theme} initialCenter={initialCenter} />
+        <MapView key={theme} onMapClick={handleMapClick} theme={theme} initialCenter={initialCenter} />
         <LocationSearch />
         {!isReadOnly && searchPreview && (
           <div className="add-mode-banner add-mode-banner--search" role="status">

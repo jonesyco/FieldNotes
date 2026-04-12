@@ -1,8 +1,6 @@
 import { memo } from 'react';
 import type { DragEvent } from 'react';
 import type { POI } from '../../types';
-import { getCategoryColorById, getCategoryLabelById } from '../../types/categories';
-import { usePOIStore } from '../../store/poiStore';
 
 interface POIListItemProps {
   poi: POI;
@@ -35,9 +33,7 @@ export default memo(function POIListItem({
   onDrop,
   onDragEnd,
 }: POIListItemProps) {
-  const { activeCategories } = usePOIStore();
-  const color = getCategoryColorById(activeCategories, poi.category);
-  const label = getCategoryLabelById(activeCategories, poi.category);
+  const primaryTag = poi.tags[0];
 
   return (
     <div
@@ -66,7 +62,7 @@ export default memo(function POIListItem({
         }
       }}
     >
-      <div className="list-item-indicator" style={{ backgroundColor: color }} />
+      <div className="list-item-indicator" />
       <div className="list-item-content">
         <div className="list-item-top">
           <div className="list-item-title-group">
@@ -81,10 +77,12 @@ export default memo(function POIListItem({
           {poi.favorite && <span className="list-item-star" aria-label="Favorited">★</span>}
         </div>
         <div className="list-item-meta">
-          <span className="list-item-category" style={{ color }}>
-            {label}
-          </span>
-          <span className="list-item-sep" aria-hidden="true">·</span>
+          {primaryTag && (
+            <>
+              <span className="list-item-category">{primaryTag}</span>
+              <span className="list-item-sep" aria-hidden="true">·</span>
+            </>
+          )}
           <span className="list-item-neighborhood">{poi.neighborhood.toUpperCase()}</span>
         </div>
         {poi.tags.length > 0 && (

@@ -1,5 +1,4 @@
 import { usePOIStore } from '../../store/poiStore';
-import { getCategoryColorById, getCategoryLabelById } from '../../types/categories';
 
 export default function DetailDrawer() {
   const {
@@ -10,15 +9,12 @@ export default function DetailDrawer() {
     deletePOI,
     setEditingPOI,
     setRelocatingPOI,
-    activeCategories,
     isReadOnly,
   } =
     usePOIStore();
 
   if (!selectedPOI) return null;
 
-  const color = getCategoryColorById(activeCategories, selectedPOI.category);
-  const label = getCategoryLabelById(activeCategories, selectedPOI.category);
   const date = new Date(selectedPOI.createdAt).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -33,16 +29,16 @@ export default function DetailDrawer() {
 
   return (
     <div className="detail-drawer" role="complementary" aria-label="POI detail">
-      <div className="detail-category-bar" style={{ backgroundColor: color }} />
-
       <div className="detail-header">
         <div className="detail-meta-top">
-          <span className="detail-category" style={{ color }}>
-            {label}
-          </span>
           <span className="detail-neighborhood-badge">
             {selectedPOI.neighborhood.toUpperCase()}
           </span>
+          {selectedPOI.tags.slice(0, 2).map((tag) => (
+            <span key={tag} className="tag-chip">
+              {tag}
+            </span>
+          ))}
         </div>
         <h2 className="detail-title">{selectedPOI.title}</h2>
         <p className="detail-date">Added {date}</p>

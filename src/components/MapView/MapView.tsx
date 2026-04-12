@@ -1,7 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { usePOIStore } from '../../store/poiStore';
-import { getCategoryColorById } from '../../types/categories';
 import { PORTLAND_CENTER, PORTLAND_DEFAULT_ZOOM } from '../../utils/geo';
 import type { Theme } from '../../hooks/useTheme';
 import type { RouteGeometry } from '../../types';
@@ -80,6 +79,7 @@ const ROUTE_COLORS: Record<Theme, { line: string; casing: string; highlight: str
 };
 const ROUTE_HIGHLIGHT_WINDOW = 0.16;
 const ROUTE_ANIMATION_DURATION_MS = 2800;
+const DEFAULT_MARKER_COLOR = '#e85d04';
 
 function getSegmentDistance(a: [number, number], b: [number, number]) {
   return Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -164,6 +164,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const previewMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [buildings3D, setBuildings3D] = useState(false);
   const [terrain, setTerrain] = useState(false);
 
@@ -175,7 +176,6 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     setMapBounds,
     highlightedGroup,
     relocatingPOI,
-    activeCategories,
     pendingFlyTo,
     setFlyTo,
     searchPreview,
@@ -196,7 +196,6 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
   const selectedPOIRef = useRef(selectedPOI);
   const hoveredPOIIdRef = useRef(hoveredPOIId);
   const highlightedGroupRef = useRef(highlightedGroup);
-  const activeCategoriesRef = useRef(activeCategories);
   const sequenceEnabledRef = useRef(sequenceEnabled);
   const routeGeometryRef = useRef<RouteGeometry | null>(routeGeometry);
   useEffect(() => {
@@ -211,11 +210,10 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     selectedPOIRef.current = selectedPOI;
     hoveredPOIIdRef.current = hoveredPOIId;
     highlightedGroupRef.current = highlightedGroup;
-    activeCategoriesRef.current = activeCategories;
     sequenceEnabledRef.current = sequenceEnabled;
     routeGeometryRef.current = routeGeometry;
   }, [addingMode, relocatingPOI, onMapClick, buildings3D, terrain, theme, initialCenter,
-    pois, selectedPOI, hoveredPOIId, highlightedGroup, activeCategories, sequenceEnabled, routeGeometry]);
+    pois, selectedPOI, hoveredPOIId, highlightedGroup, sequenceEnabled, routeGeometry]);
 
   // Add the fill-extrusion layer on top of existing building layers
   const addBuildingExtrusion = useCallback((m: maplibregl.Map, t: Theme) => {
@@ -447,19 +445,11 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       markersRef.current.forEach((mk) => mk.remove());
       markersRef.current.clear();
       previewMarkerRef.current?.remove();
+      previewMarkerRef.current = null;
       m.remove();
       map.current = null;
     };
   }, [setMapBounds, addBuildingExtrusion, addTerrain, upsertRouteLayers]);
-
-  // Switch map style when theme changes (skip first render — already set at init)
-  const isFirstRender = useRef(true);
-  useEffect(() => {
-    if (isFirstRender.current) { isFirstRender.current = false; return; }
-    if (!map.current) return;
-    map.current.setStyle(MAP_STYLES[theme]);
-    // style.load handler will re-add the building extrusion automatically
-  }, [theme]);
 
   // Toggle 3D terrain on/off
   const toggleTerrain = useCallback(() => {
@@ -516,7 +506,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       if (!markersRef.current.has(poi.id)) {
         const el = document.createElement('div');
         el.className = 'poi-marker';
-        el.style.setProperty('--marker-color', getCategoryColorById(activeCategoriesRef.current, poi.category));
+        el.style.setProperty('--marker-color', DEFAULT_MARKER_COLOR);
 
         const dot = document.createElement('div');
         dot.className = getDotClass(poi.id, poi.group);
@@ -624,8 +614,6 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     map.current?.flyTo({ center, zoom: PORTLAND_DEFAULT_ZOOM, pitch: 0, duration: 800 });
   }, []);
 
-  // Search preview marker — pulsing pin dropped at the geocoded location
-  const previewMarkerRef = useRef<maplibregl.Marker | null>(null);
   useEffect(() => {
     if (previewMarkerRef.current) {
       previewMarkerRef.current.remove();

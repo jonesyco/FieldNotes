@@ -36,7 +36,6 @@ export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, o
     isReadOnly,
     syncError,
     sequenceEnabled,
-    setSequenceEnabled,
     reorderPOIs,
     routeLoading,
     routeError,
@@ -112,18 +111,11 @@ export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, o
             + ADD
           </button>
           <ShareButton userId={auth.user?.id} />
-          <button className="btn-action btn-secondary" onClick={onExport}>
-            ↓
-          </button>
-          <button className="btn-action btn-secondary" onClick={onImport} disabled={isReadOnly}>
-            ↑
-          </button>
           <button
             className="btn-action btn-secondary"
             onClick={() => setSettingsOpen(true)}
-            title="Category settings"
-            aria-label="Open category settings"
-            disabled={isReadOnly}
+            title="Open settings"
+            aria-label="Open settings"
           >
             ⚙
           </button>
@@ -147,7 +139,12 @@ export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, o
         />
       )}
 
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onExport={onExport}
+        onImport={onImport}
+      />
 
       {collectionId && (
         <div className="readonly-banner" role="status">
@@ -158,18 +155,6 @@ export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, o
 
       <div className="panel-search">
         <SearchBar disabled={sequenceEnabled} />
-      </div>
-
-      <div className="sequence-toggle-bar">
-        <label className="filter-toggle">
-          <input
-            type="checkbox"
-            checked={sequenceEnabled}
-            onChange={(event) => setSequenceEnabled(event.target.checked)}
-            disabled={isReadOnly}
-          />
-          <span>↝ SEQUENCE MAP</span>
-        </label>
       </div>
 
       <FilterBar disabled={sequenceEnabled} />
@@ -195,7 +180,7 @@ export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, o
         >
           <option value="newest">NEWEST</option>
           <option value="alphabetical">A–Z</option>
-          <option value="category">CATEGORY</option>
+          <option value="tag">TAG</option>
           <option value="neighborhood">AREA</option>
         </select>
       </div>

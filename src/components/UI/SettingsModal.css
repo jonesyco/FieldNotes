@@ -40,6 +40,64 @@
   border-bottom: 1px solid #dddddd;
 }
 
+.settings-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.settings-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #ffffff;
+  color: #333333;
+}
+
+.settings-option--actions {
+  align-items: flex-start;
+}
+
+.settings-option-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.settings-option-title {
+  font-family: var(--font-condensed);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.settings-option-description {
+  font-size: 0.875rem;
+  color: #666666;
+}
+
+.settings-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.settings-action-button {
+  min-width: 102px;
+  align-self: center;
+}
+
+.settings-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .add-category-form {
   display: flex;
   gap: 0.5rem;
@@ -211,6 +269,16 @@
     background-color: #2a2a2a;
     border-color: #404040;
     color: #e0e0e0;
+  }
+
+  .settings-option {
+    background-color: #2a2a2a;
+    border-color: #404040;
+    color: #e0e0e0;
+  }
+
+  .settings-option-description {
+    color: #bbbbbb;
   }
 
   .category-item:hover {

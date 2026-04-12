@@ -1,10 +1,7 @@
-import type { CategoryId } from './categories';
-
 export interface POI {
   id: string;
   title: string;
   description: string;
-  category: CategoryId;
   includeInSequence: boolean;
   tags: string[];
   neighborhood: string;
@@ -17,11 +14,11 @@ export interface POI {
   favorite: boolean;
 }
 
-export type SortOption = 'newest' | 'alphabetical' | 'category' | 'neighborhood';
+export type SortOption = 'newest' | 'alphabetical' | 'tag' | 'neighborhood';
 
 export interface FilterState {
   search: string;
-  categories: CategoryId[];
+  tags: string[];
   favoritesOnly: boolean;
   inBoundsOnly: boolean;
   sort: SortOption;

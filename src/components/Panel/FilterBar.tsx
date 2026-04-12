@@ -1,32 +1,30 @@
 import { usePOIStore } from '../../store/poiStore';
+import { collectTagsFromPois } from '../../utils/tags';
 
 interface FilterBarProps {
   disabled?: boolean;
 }
 
 export default function FilterBar({ disabled = false }: FilterBarProps) {
-  const { filter, toggleCategory, setFilter, resetFilters, activeCategories } = usePOIStore();
+  const { filter, toggleTag, setFilter, resetFilters, pois } = usePOIStore();
+  const allTags = collectTagsFromPois(pois);
+  const activeTags = Array.isArray(filter.tags) ? filter.tags : [];
   const hasFilters =
-    filter.categories.length > 0 || filter.favoritesOnly || filter.inBoundsOnly;
+    activeTags.length > 0 || filter.favoritesOnly || filter.inBoundsOnly;
 
   return (
     <div className="filter-bar">
       <div className="filter-categories">
-        {activeCategories.map((cat) => {
-          const active = filter.categories.includes(cat.id);
+        {allTags.map((tag) => {
+          const active = activeTags.some((selectedTag) => selectedTag.toLowerCase() === tag.toLowerCase());
           return (
             <button
-              key={cat.id}
+              key={tag}
               className={`filter-chip${active ? ' filter-chip--active' : ''}`}
-              style={
-                active
-                  ? { borderColor: cat.color, color: cat.color }
-                  : undefined
-              }
-              onClick={() => toggleCategory(cat.id)}
+              onClick={() => toggleTag(tag)}
               disabled={disabled}
             >
-              {cat.name}
+              {tag}
             </button>
           );
         })}

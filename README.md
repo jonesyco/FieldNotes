@@ -41,7 +41,6 @@ create table collections (
   id text primary key,
   title text,
   pois jsonb not null default '[]',
-  categories jsonb not null default '[]',
   sequence_enabled boolean not null default false,
   user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz default now(),
@@ -91,26 +90,27 @@ The ↗ SHARE button will now be active. Without credentials, the app runs fully
 
 ### POIs
 - **Add POI** — click "+ ADD", then click any point on the map to place it
-- **Fields** — title, description, category, tags, area/neighborhood, photo URL, website URL
-- **13 categories** — food, coffee, bars, parks, viewpoints, music, art, shops, weird, hidden gems, safety, transit, other
+- **Fields** — title, description, tags, area/neighborhood, photo URL, website URL
+- **Tags-first organization** — each location can carry any number of freeform tags, and legacy category values are automatically folded into tags when older saved maps are loaded
 - **Detail drawer** — click any marker or list item for full details, links, and image
 - **Edit & delete** — full CRUD on every POI
 - **Favorites** — star/unstar from the detail view
 
 ### Panel & Filtering
 - **Live list panel** — dense scrollable list of visible/filtered POIs
-- **Search** — filter by title, tag, area, or category
-- **Category filter chips** — toggle one or more categories
+- **Search** — filter by title, tag, or area
+- **Dynamic tag chips** — toggle one or more tags that currently exist on the loaded map
 - **In View** — show only POIs currently visible on the map
 - **Favorites only** — filter to starred POIs
-- **Sort** — newest, alphabetical, category, area
+- **Sort** — newest, alphabetical, tag, area
 - **Sequence Map** — switch to manual stop ordering, drag locations vertically, choose which locations are included, and draw an animated driving route that follows the checked stops in list order
 
 ### Sharing
 - **↗ SHARE** — saves all current POIs to Supabase, updates the URL, shows a copyable link
 - **Read-only view** — recipients see the shared map with all POIs; edit/delete are hidden
-- **Open in Editor** — recipient can fork the shared map into their own local session
-- **Export / Import** — download POIs as JSON, re-import from file (works offline)
+- **Fork** — recipients can create their own independent copy from a shared map
+- **Export / Import** — available from **Settings → Data**; download POIs as JSON or import from file (works offline)
+- **Settings** — includes Sequence Map and data actions, plus a read-only tag summary for the current map
 - **localStorage persistence** — POIs survive page refresh without Supabase
 
 ## Project Structure

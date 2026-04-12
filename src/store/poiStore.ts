@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { POI, FilterState, MapBounds, RouteGeometry } from '../types';
-import type { CategoryId, Category } from '../types/categories';
-import { PREDEFINED_CATEGORIES } from '../types/categories';
+import { dedupeTags, getLegacyCategoryTag } from '../utils/tags';
 
 type DropPlacement = 'before' | 'after';
 
@@ -25,7 +24,6 @@ interface POIStore {
   pendingFlyTo: { center: [number, number]; zoom?: number; saveReturn?: boolean } | null;
   searchPreview: { lat: number; lng: number; label: string } | null;
   searchReturnTarget: { center: [number, number]; zoom: number } | null;
-  activeCategories: Category[];
 
   addPOI: (poi: Omit<POI, 'id' | 'createdAt' | 'favorite'>) => void;
   updatePOI: (id: string, updates: Partial<POI>) => void;
@@ -35,7 +33,7 @@ interface POIStore {
   selectPOI: (poi: POI | null) => void;
   hoverPOI: (id: string | null) => void;
   setFilter: (update: Partial<FilterState>) => void;
-  toggleCategory: (catId: CategoryId) => void;
+  toggleTag: (tag: string) => void;
   setMapBounds: (bounds: MapBounds) => void;
   setAddingMode: (mode: boolean) => void;
   setEditingPOI: (poi: POI | null) => void;
@@ -45,7 +43,7 @@ interface POIStore {
   resetFilters: () => void;
   highlightedGroup: string | null;
   setHighlightedGroup: (group: string | null) => void;
-  replacePois: (pois: POI[], categories?: Category[], sequenceEnabled?: boolean) => void;
+  replacePois: (pois: POI[], sequenceEnabled?: boolean) => void;
   setCollectionId: (id: string | null) => void;
   setIsSaving: (v: boolean) => void;
   setSyncError: (message: string | null) => void;
@@ -59,15 +57,11 @@ interface POIStore {
   setSearchReturnTarget: (t: { center: [number, number]; zoom: number } | null) => void;
   loadSharedCollection: (id: string, viewerUserId?: string) => Promise<void>;
   loadCollectionForEditing: (id: string) => Promise<void>;
-  addCategory: (name: string, color: string) => void;
-  updateCategory: (id: CategoryId, name: string, color: string) => void;
-  deleteCategory: (id: CategoryId) => void;
-  toggleCategoryActive: (id: CategoryId) => void;
 }
 
 const DEFAULT_FILTER: FilterState = {
   search: '',
-  categories: [],
+  tags: [],
   favoritesOnly: false,
   inBoundsOnly: false,
   sort: 'newest',
@@ -75,11 +69,12 @@ const DEFAULT_FILTER: FilterState = {
 
 interface PersistedPOIStore {
   pois: POI[];
-  activeCategories: Category[];
   sequenceEnabled: boolean;
 }
 
-function isStoredPOI(value: unknown): value is POI {
+type StoredPOI = POI & { category?: unknown; tags?: unknown };
+
+function isStoredPOI(value: unknown): value is StoredPOI {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -88,53 +83,40 @@ function isStoredPOI(value: unknown): value is POI {
   );
 }
 
-function isStoredCategory(value: unknown): value is Category {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'id' in value &&
-    typeof value.id === 'string' &&
-    'name' in value &&
-    typeof value.name === 'string' &&
-    'color' in value &&
-    typeof value.color === 'string' &&
-    'isPredefined' in value &&
-    typeof value.isPredefined === 'boolean'
-  );
-}
-
-function stripSeedPois(pois: POI[]): POI[] {
+function stripSeedPois(pois: StoredPOI[]): StoredPOI[] {
   return pois.filter((poi) => !poi.id.startsWith('seed-'));
 }
 
-function normalizePOI(poi: POI): POI {
+function normalizePOI(poi: StoredPOI): POI {
+  const rawTags = Array.isArray(poi.tags)
+    ? poi.tags.filter((tag): tag is string => typeof tag === 'string')
+    : [];
+  const legacyCategoryTag = getLegacyCategoryTag(poi.category);
+
   return {
     ...poi,
     includeInSequence: poi.includeInSequence ?? true,
+    tags: dedupeTags(legacyCategoryTag ? [...rawTags, legacyCategoryTag] : rawTags),
   };
 }
 
-function normalizePOIs(pois: POI[]): POI[] {
+function normalizePOIs(pois: StoredPOI[]): POI[] {
   return stripSeedPois(pois).map(normalizePOI);
 }
 
 function migratePersistedState(persistedState: unknown): PersistedPOIStore {
   const state =
     typeof persistedState === 'object' && persistedState !== null
-      ? (persistedState as Partial<Record<keyof PersistedPOIStore, unknown>>)
+      ? (persistedState as Partial<Record<keyof PersistedPOIStore | 'activeCategories', unknown>>)
       : undefined;
 
   const pois = Array.isArray(state?.pois)
     ? normalizePOIs(state.pois.filter(isStoredPOI))
     : [];
 
-  const activeCategories = Array.isArray(state?.activeCategories)
-    ? state.activeCategories.filter(isStoredCategory)
-    : PREDEFINED_CATEGORIES;
-
   const sequenceEnabled = typeof state?.sequenceEnabled === 'boolean' ? state.sequenceEnabled : false;
 
-  return { pois, activeCategories, sequenceEnabled };
+  return { pois, sequenceEnabled };
 }
 
 function movePoiById(pois: POI[], draggedId: string, targetId: string, placement: DropPlacement): POI[] {
@@ -153,6 +135,24 @@ function movePoiById(pois: POI[], draggedId: string, targetId: string, placement
   next.splice(insertIndex, 0, draggedPoi);
 
   return next;
+}
+
+function normalizeFilterState(filter: Partial<FilterState> | undefined): FilterState {
+  return {
+    search: typeof filter?.search === 'string' ? filter.search : DEFAULT_FILTER.search,
+    tags: Array.isArray(filter?.tags)
+      ? filter.tags.filter((tag): tag is string => typeof tag === 'string')
+      : DEFAULT_FILTER.tags,
+    favoritesOnly: typeof filter?.favoritesOnly === 'boolean' ? filter.favoritesOnly : DEFAULT_FILTER.favoritesOnly,
+    inBoundsOnly: typeof filter?.inBoundsOnly === 'boolean' ? filter.inBoundsOnly : DEFAULT_FILTER.inBoundsOnly,
+    sort:
+      filter?.sort === 'newest' ||
+      filter?.sort === 'alphabetical' ||
+      filter?.sort === 'tag' ||
+      filter?.sort === 'neighborhood'
+        ? filter.sort
+        : DEFAULT_FILTER.sort,
+  };
 }
 
 export const usePOIStore = create<POIStore>()(
@@ -177,47 +177,39 @@ export const usePOIStore = create<POIStore>()(
       pendingFlyTo: null,
       searchPreview: null,
       searchReturnTarget: null,
-      activeCategories: PREDEFINED_CATEGORIES,
 
       addPOI: (poiData) =>
-        set((state) => {
-          // Validate category exists in activeCategories
-          const categoryExists = state.activeCategories.some((c) => c.id === poiData.category);
-          const validCategory = categoryExists ? poiData.category : 'other';
-          return {
-            pois: [
-              ...(state.sequenceEnabled ? state.pois : []),
-              {
-                ...poiData,
-                category: validCategory,
-                includeInSequence: poiData.includeInSequence ?? true,
-                id: `poi-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                createdAt: new Date().toISOString(),
-                favorite: false,
-              },
-              ...(!state.sequenceEnabled ? state.pois : []),
-            ],
-          };
-        }),
+        set((state) => ({
+          pois: [
+            ...(state.sequenceEnabled ? state.pois : []),
+            {
+              ...poiData,
+              tags: dedupeTags(poiData.tags),
+              includeInSequence: poiData.includeInSequence ?? true,
+              id: `poi-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+              createdAt: new Date().toISOString(),
+              favorite: false,
+            },
+            ...(!state.sequenceEnabled ? state.pois : []),
+          ],
+        })),
 
       updatePOI: (id, updates) =>
-        set((state) => {
-          // Validate category if being updated
-          let validUpdates = updates;
-          if (updates.category) {
-            const categoryExists = state.activeCategories.some((c) => c.id === updates.category);
-            if (!categoryExists) {
-              validUpdates = { ...updates, category: 'other' };
-            }
-          }
-          return {
-            pois: state.pois.map((p) => (p.id === id ? { ...p, ...validUpdates } : p)),
-            selectedPOI:
-              state.selectedPOI?.id === id
-                ? { ...state.selectedPOI, ...validUpdates }
-                : state.selectedPOI,
-          };
-        }),
+        set((state) => ({
+          pois: state.pois.map((p) =>
+            p.id === id
+              ? { ...p, ...updates, ...(updates.tags ? { tags: dedupeTags(updates.tags) } : {}) }
+              : p
+          ),
+          selectedPOI:
+            state.selectedPOI?.id === id
+              ? {
+                  ...state.selectedPOI,
+                  ...updates,
+                  ...(updates.tags ? { tags: dedupeTags(updates.tags) } : {}),
+                }
+              : state.selectedPOI,
+        })),
 
       deletePOI: (id) =>
         set((state) => ({
@@ -235,6 +227,7 @@ export const usePOIStore = create<POIStore>()(
               ? { ...state.selectedPOI, favorite: !state.selectedPOI.favorite }
               : state.selectedPOI,
         })),
+
       toggleSequenceInclusion: (id) =>
         set((state) => ({
           pois: state.pois.map((p) =>
@@ -249,16 +242,18 @@ export const usePOIStore = create<POIStore>()(
       selectPOI: (poi) => set({ selectedPOI: poi }),
       hoverPOI: (id) => set({ hoveredPOIId: id }),
       setFilter: (update) =>
-        set((state) => ({ filter: { ...state.filter, ...update } })),
-      toggleCategory: (catId) =>
+        set((state) => ({ filter: normalizeFilterState({ ...normalizeFilterState(state.filter), ...update }) })),
+      toggleTag: (tag) =>
         set((state) => {
-          const cats = state.filter.categories;
+          const filter = normalizeFilterState(state.filter);
+          const normalizedTag = tag.toLowerCase();
+          const tags = filter.tags;
           return {
             filter: {
-              ...state.filter,
-              categories: cats.includes(catId)
-                ? cats.filter((c) => c !== catId)
-                : [...cats, catId],
+              ...filter,
+              tags: tags.some((value) => value.toLowerCase() === normalizedTag)
+                ? tags.filter((value) => value.toLowerCase() !== normalizedTag)
+                : [...tags, tag],
             },
           };
         }),
@@ -267,14 +262,13 @@ export const usePOIStore = create<POIStore>()(
       setEditingPOI: (poi) => set({ editingPOI: poi }),
       setRelocatingPOI: (poi) => set({ relocatingPOI: poi }),
       importPOIs: (pois) =>
-        set((state) => ({ pois: [...state.pois, ...normalizePOIs(pois)] })),
-      resetFilters: () => set({ filter: DEFAULT_FILTER }),
+        set((state) => ({ pois: [...state.pois, ...normalizePOIs(pois as StoredPOI[])] })),
+      resetFilters: () => set({ filter: normalizeFilterState(DEFAULT_FILTER) }),
       highlightedGroup: null,
       setHighlightedGroup: (group) => set({ highlightedGroup: group }),
-      replacePois: (pois, categories, sequenceEnabled) =>
+      replacePois: (pois, sequenceEnabled) =>
         set(() => ({
-          pois: normalizePOIs(pois),
-          ...(categories ? { activeCategories: categories } : {}),
+          pois: normalizePOIs(pois as StoredPOI[]),
           ...(typeof sequenceEnabled === 'boolean' ? { sequenceEnabled } : {}),
         })),
       setCollectionId: (id) => set({ collectionId: id }),
@@ -290,74 +284,6 @@ export const usePOIStore = create<POIStore>()(
       setSearchPreview: (preview) => set({ searchPreview: preview }),
       setSearchReturnTarget: (t) => set({ searchReturnTarget: t }),
 
-      addCategory: (name, color) =>
-        set((state) => {
-          const newCategory: Category = {
-            id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            name,
-            color,
-            isPredefined: false,
-          };
-          return {
-            activeCategories: [...state.activeCategories, newCategory],
-          };
-        }),
-
-      updateCategory: (id, name, color) =>
-        set((state) => ({
-          activeCategories: state.activeCategories.map((cat) =>
-            cat.id === id ? { ...cat, name, color } : cat
-          ),
-        })),
-
-      deleteCategory: (id) =>
-        set((state) => {
-          // Cannot delete 'other' category
-          if (id === 'other') return state;
-
-          // Delete category and reassign POIs to 'other'
-          return {
-            activeCategories: state.activeCategories.filter((cat) => cat.id !== id),
-            pois: state.pois.map((poi) =>
-              poi.category === id ? { ...poi, category: 'other' } : poi
-            ),
-            selectedPOI:
-              state.selectedPOI?.category === id
-                ? { ...state.selectedPOI, category: 'other' }
-                : state.selectedPOI,
-          };
-        }),
-
-      toggleCategoryActive: (id) =>
-        set((state) => {
-          // Cannot delete 'other' category
-          if (id === 'other') return state;
-
-          const categoryExists = state.activeCategories.some((cat) => cat.id === id);
-          if (!categoryExists) {
-            // Re-enable predefined category
-            const predefined = PREDEFINED_CATEGORIES.find((cat) => cat.id === id);
-            if (predefined) {
-              return {
-                activeCategories: [...state.activeCategories, predefined],
-              };
-            }
-          } else {
-            // Disable category and reassign POIs to 'other'
-            return {
-              activeCategories: state.activeCategories.filter((cat) => cat.id !== id),
-              pois: state.pois.map((poi) =>
-                poi.category === id ? { ...poi, category: 'other' } : poi
-              ),
-              selectedPOI:
-                state.selectedPOI?.category === id
-                  ? { ...state.selectedPOI, category: 'other' }
-                  : state.selectedPOI,
-            };
-          }
-          return state;
-        }),
-
       loadSharedCollection: async (id, viewerUserId) => {
         set({ isSaving: true });
         try {
@@ -365,12 +291,11 @@ export const usePOIStore = create<POIStore>()(
           const collection = await loadCollection(id);
           const isOwner = Boolean(collection.user_id) && collection.user_id === viewerUserId;
           set({
-            pois: normalizePOIs(collection.pois),
+            pois: normalizePOIs(collection.pois as StoredPOI[]),
             collectionId: id,
             isReadOnly: !isOwner,
             selectedPOI: null,
-            filter: DEFAULT_FILTER,
-            activeCategories: collection.categories || PREDEFINED_CATEGORIES,
+            filter: normalizeFilterState(DEFAULT_FILTER),
             syncError: null,
             sequenceEnabled: collection.sequence_enabled ?? false,
             routeGeometry: null,
@@ -381,18 +306,18 @@ export const usePOIStore = create<POIStore>()(
           set({ isSaving: false });
         }
       },
+
       loadCollectionForEditing: async (id) => {
         set({ isSaving: true });
         try {
           const { loadCollection } = await import('../lib/collections');
           const collection = await loadCollection(id);
           set({
-            pois: normalizePOIs(collection.pois),
+            pois: normalizePOIs(collection.pois as StoredPOI[]),
             collectionId: id,
             isReadOnly: false,
             selectedPOI: null,
-            filter: DEFAULT_FILTER,
-            activeCategories: collection.categories || PREDEFINED_CATEGORIES,
+            filter: normalizeFilterState(DEFAULT_FILTER),
             syncError: null,
             sequenceEnabled: collection.sequence_enabled ?? false,
             routeGeometry: null,
@@ -409,11 +334,10 @@ export const usePOIStore = create<POIStore>()(
     }),
     {
       name: 'fieldnotes-store',
-      version: 2,
+      version: 3,
       migrate: migratePersistedState,
       partialize: (state) => ({
         pois: state.pois,
-        activeCategories: state.activeCategories,
         sequenceEnabled: state.sequenceEnabled,
       }),
     }

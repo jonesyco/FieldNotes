@@ -3,7 +3,6 @@ import { usePOIStore } from '../store/poiStore';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { updateCollection } from '../lib/collections';
 import type { POI } from '../types';
-import type { Category } from '../types/categories';
 
 function getSyncErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
@@ -28,7 +27,7 @@ function getSyncErrorMessage(error: unknown): string {
  *                     initial set-pois doesn't trigger a spurious save.
  */
 export function useCollectionSync() {
-  const { pois, collectionId, activeCategories, replacePois, isReadOnly, setSyncError, sequenceEnabled } = usePOIStore();
+  const { pois, collectionId, replacePois, isReadOnly, setSyncError, sequenceEnabled } = usePOIStore();
 
   const skipNextRealtimeRef = useRef(false);
   const remoteUpdateRef = useRef(false);
@@ -51,8 +50,8 @@ export function useCollectionSync() {
             return;
           }
           remoteUpdateRef.current = true;
-          const row = payload.new as { pois: POI[]; categories?: Category[]; sequence_enabled?: boolean };
-          replacePois(row.pois, row.categories, row.sequence_enabled);
+          const row = payload.new as { pois: POI[]; sequence_enabled?: boolean };
+          replacePois(row.pois, row.sequence_enabled);
           setSyncError(null);
         }
       )
@@ -81,7 +80,7 @@ export function useCollectionSync() {
     saveTimerRef.current = setTimeout(async () => {
       skipNextRealtimeRef.current = true;
       try {
-        await updateCollection(collectionId, pois, sequenceEnabled, activeCategories);
+        await updateCollection(collectionId, pois, sequenceEnabled);
         setSyncError(null);
       } catch (err) {
         console.error('Auto-save failed:', err);
@@ -91,5 +90,5 @@ export function useCollectionSync() {
     }, 1500);
 
     return () => clearTimeout(saveTimerRef.current);
-  }, [pois, activeCategories, collectionId, isReadOnly, sequenceEnabled, setSyncError]);
+  }, [pois, collectionId, isReadOnly, sequenceEnabled, setSyncError]);
 }

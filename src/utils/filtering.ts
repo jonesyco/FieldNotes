@@ -14,13 +14,14 @@ export function filterAndSortPOIs(
         p.title.toLowerCase().includes(q) ||
         p.description.toLowerCase().includes(q) ||
         p.neighborhood.toLowerCase().includes(q) ||
-        p.tags.some((t) => t.toLowerCase().includes(q)) ||
-        p.category.toLowerCase().includes(q)
+        p.tags.some((t) => t.toLowerCase().includes(q))
     );
   }
 
-  if (filter.categories.length > 0) {
-    result = result.filter((p) => filter.categories.includes(p.category));
+  if (filter.tags.length > 0) {
+    result = result.filter((p) =>
+      p.tags.some((tag) => filter.tags.some((selectedTag) => selectedTag.toLowerCase() === tag.toLowerCase()))
+    );
   }
 
   if (filter.favoritesOnly) {
@@ -44,9 +45,11 @@ export function filterAndSortPOIs(
     case 'alphabetical':
       result.sort((a, b) => a.title.localeCompare(b.title));
       break;
-    case 'category':
-      result.sort((a, b) => a.category.localeCompare(b.category) || a.title.localeCompare(b.title));
+    case 'tag': {
+      const getFirstTag = (poi: POI) => poi.tags[0]?.toLowerCase() ?? '';
+      result.sort((a, b) => getFirstTag(a).localeCompare(getFirstTag(b)) || a.title.localeCompare(b.title));
       break;
+    }
     case 'neighborhood':
       result.sort((a, b) => a.neighborhood.localeCompare(b.neighborhood) || a.title.localeCompare(b.title));
       break;
