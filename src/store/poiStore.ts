@@ -18,6 +18,7 @@ interface POIStore {
   isSaving: boolean;
   syncError: string | null;
   sequenceEnabled: boolean;
+  upsideDownMode: boolean;
   routeGeometry: RouteGeometry | null;
   routeLoading: boolean;
   routeError: string | null;
@@ -48,6 +49,7 @@ interface POIStore {
   setIsSaving: (v: boolean) => void;
   setSyncError: (message: string | null) => void;
   setSequenceEnabled: (enabled: boolean) => void;
+  setUpsideDownMode: (enabled: boolean) => void;
   reorderPOIs: (draggedId: string, targetId: string, placement: DropPlacement) => void;
   setRouteGeometry: (route: RouteGeometry | null) => void;
   setRouteLoading: (loading: boolean) => void;
@@ -70,6 +72,7 @@ const DEFAULT_FILTER: FilterState = {
 interface PersistedPOIStore {
   pois: POI[];
   sequenceEnabled: boolean;
+  upsideDownMode: boolean;
 }
 
 type StoredPOI = POI & { category?: unknown; tags?: unknown };
@@ -115,8 +118,9 @@ function migratePersistedState(persistedState: unknown): PersistedPOIStore {
     : [];
 
   const sequenceEnabled = typeof state?.sequenceEnabled === 'boolean' ? state.sequenceEnabled : false;
+  const upsideDownMode = typeof state?.upsideDownMode === 'boolean' ? state.upsideDownMode : false;
 
-  return { pois, sequenceEnabled };
+  return { pois, sequenceEnabled, upsideDownMode };
 }
 
 function movePoiById(pois: POI[], draggedId: string, targetId: string, placement: DropPlacement): POI[] {
@@ -171,6 +175,7 @@ export const usePOIStore = create<POIStore>()(
       isSaving: false,
       syncError: null,
       sequenceEnabled: false,
+      upsideDownMode: false,
       routeGeometry: null,
       routeLoading: false,
       routeError: null,
@@ -275,6 +280,7 @@ export const usePOIStore = create<POIStore>()(
       setIsSaving: (v) => set({ isSaving: v }),
       setSyncError: (message) => set({ syncError: message }),
       setSequenceEnabled: (enabled) => set({ sequenceEnabled: enabled }),
+      setUpsideDownMode: (enabled) => set({ upsideDownMode: enabled }),
       reorderPOIs: (draggedId, targetId, placement) =>
         set((state) => ({ pois: movePoiById(state.pois, draggedId, targetId, placement) })),
       setRouteGeometry: (route) => set({ routeGeometry: route }),
@@ -334,11 +340,12 @@ export const usePOIStore = create<POIStore>()(
     }),
     {
       name: 'fieldnotes-store',
-      version: 3,
+      version: 4,
       migrate: migratePersistedState,
       partialize: (state) => ({
         pois: state.pois,
         sequenceEnabled: state.sequenceEnabled,
+        upsideDownMode: state.upsideDownMode,
       }),
     }
   )

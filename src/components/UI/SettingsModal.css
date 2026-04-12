@@ -87,6 +87,27 @@
   flex-shrink: 0;
 }
 
+.settings-option--upside-down {
+  border-color: rgba(156, 228, 208, 0.25);
+  background:
+    radial-gradient(circle at top left, rgba(12, 29, 25, 0.55), transparent 45%),
+    linear-gradient(135deg, rgba(8, 18, 16, 0.9), rgba(13, 21, 19, 0.92));
+  color: #d6f2ea;
+}
+
+[data-theme="light"] .settings-option--upside-down {
+  border-color: rgba(26, 71, 61, 0.18);
+  background:
+    radial-gradient(circle at top left, rgba(25, 54, 47, 0.12), transparent 42%),
+    linear-gradient(135deg, rgba(234, 245, 242, 0.95), rgba(222, 236, 233, 0.98));
+  color: #16342d;
+}
+
+.settings-option--upside-down .settings-option-description {
+  color: inherit;
+  opacity: 0.8;
+}
+
 .settings-action-button {
   min-width: 102px;
   align-self: center;

@@ -1,6 +1,8 @@
 import { memo } from 'react';
 import type { DragEvent } from 'react';
 import type { POI } from '../../types';
+import { usePOIStore } from '../../store/poiStore';
+import { getDisplayNeighborhood, getDisplayTitle } from '../../utils/spookyText';
 
 interface POIListItemProps {
   poi: POI;
@@ -34,6 +36,9 @@ export default memo(function POIListItem({
   onDragEnd,
 }: POIListItemProps) {
   const primaryTag = poi.tags[0];
+  const upsideDownMode = usePOIStore((state) => state.upsideDownMode);
+  const displayTitle = getDisplayTitle(poi.title, upsideDownMode);
+  const displayNeighborhood = getDisplayNeighborhood(poi.neighborhood, upsideDownMode);
 
   return (
     <div
@@ -72,7 +77,12 @@ export default memo(function POIListItem({
                 <span className="list-item-drag" aria-hidden="true">⋮⋮</span>
               </>
             )}
-            <span className="list-item-title">{poi.title}</span>
+            <span
+              className={`list-item-title${upsideDownMode ? ' spooky-glitch' : ''}`}
+              data-text={displayTitle}
+            >
+              {displayTitle}
+            </span>
           </div>
           {poi.favorite && <span className="list-item-star" aria-label="Favorited">★</span>}
         </div>
@@ -83,7 +93,7 @@ export default memo(function POIListItem({
               <span className="list-item-sep" aria-hidden="true">·</span>
             </>
           )}
-          <span className="list-item-neighborhood">{poi.neighborhood.toUpperCase()}</span>
+          <span className="list-item-neighborhood">{displayNeighborhood.toUpperCase()}</span>
         </div>
         {poi.tags.length > 0 && (
           <div className="list-item-tags">

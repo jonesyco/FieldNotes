@@ -3,12 +3,17 @@ import maplibregl from 'maplibre-gl';
 import { usePOIStore } from '../../store/poiStore';
 import { PORTLAND_CENTER, PORTLAND_DEFAULT_ZOOM } from '../../utils/geo';
 import type { Theme } from '../../hooks/useTheme';
-import type { RouteGeometry } from '../../types';
+import type { POI, RouteGeometry } from '../../types';
+import DecayOverlay from './DecayOverlay';
+import MistOverlay from './MistOverlay';
+import { getDisplayTitle, getSpookyMarkerGlyph } from '../../utils/spookyText';
 
 const MAP_STYLES: Record<Theme, string> = {
   dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
   light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
 };
+
+const UPSIDE_DOWN_STYLE = MAP_STYLES.dark;
 
 // Colors for the fill-extrusion layer per theme
 const BUILDING_COLORS: Record<Theme, { fill: string; base: string; opacity: number }> = {
@@ -16,11 +21,15 @@ const BUILDING_COLORS: Record<Theme, { fill: string; base: string; opacity: numb
   light: { fill: '#c4cadb', base: '#b0b8cd', opacity: 0.70 },
 };
 
+const MIRROR_WORLD_BUILDING_COLORS = { fill: '#6b3328', base: '#1a0a0f', opacity: 0.94 };
+
 // Water fill colors — override the basemap's default per theme
 const WATER_COLORS: Record<Theme, string> = {
   dark: '#1a3a5c',  // deep steel blue — visible but fits dark palette
   light: '#a4cde4',  // soft classic-map blue
 };
+
+const MIRROR_WORLD_WATER_COLOR = '#1b0815';
 
 // Green space colors — parks, grass, woods, nature reserves
 const GREEN_COLORS: Record<Theme, { landcover: string; parks: string }> = {
@@ -28,14 +37,64 @@ const GREEN_COLORS: Record<Theme, { landcover: string; parks: string }> = {
   light: { landcover: '#c8e0bc', parks: '#b8d8a8' },
 };
 
-function applyWaterColors(m: maplibregl.Map, t: Theme) {
+const MIRROR_WORLD_GREEN_COLORS = { landcover: '#2d180d', parks: '#1f0d0b' };
+
+const MIRROR_WORLD_ROAD_COLORS = {
+  major: '#a5562d',
+  minor: '#5a2b20',
+  boundary: '#261017',
+  buildingOutline: '#1a0c11',
+  label: '#f0b278',
+  halo: '#14060d',
+  background: '#0b0309',
+};
+
+const MIRROR_WORLD_MARKER_COLOR = '#d2642a';
+
+type StyleLayer = NonNullable<ReturnType<maplibregl.Map['getStyle']>['layers']>[number];
+
+function getSourceLayerName(layer: StyleLayer): string {
+  const candidate = layer as StyleLayer & { 'source-layer'?: string };
+  return typeof candidate['source-layer'] === 'string' ? candidate['source-layer'] : '';
+}
+
+function getSourceId(layer: StyleLayer): string {
+  const candidate = layer as StyleLayer & { source?: string };
+  return typeof candidate.source === 'string' ? candidate.source : '';
+}
+
+function getBuildingColors(theme: Theme, upsideDownMode: boolean) {
+  return upsideDownMode ? MIRROR_WORLD_BUILDING_COLORS : BUILDING_COLORS[theme];
+}
+
+function getMapStyle(theme: Theme, upsideDownMode: boolean) {
+  return upsideDownMode ? UPSIDE_DOWN_STYLE : MAP_STYLES[theme];
+}
+
+function getBuildingSourceId(upsideDownMode: boolean) {
+  return upsideDownMode ? 'carto' : 'carto';
+}
+
+function getWaterColor(theme: Theme, upsideDownMode: boolean) {
+  return upsideDownMode ? MIRROR_WORLD_WATER_COLOR : WATER_COLORS[theme];
+}
+
+function getGreenColors(theme: Theme, upsideDownMode: boolean) {
+  return upsideDownMode ? MIRROR_WORLD_GREEN_COLORS : GREEN_COLORS[theme];
+}
+
+function getMarkerColor(upsideDownMode: boolean) {
+  return upsideDownMode ? MIRROR_WORLD_MARKER_COLOR : DEFAULT_MARKER_COLOR;
+}
+
+function applyWaterColors(m: maplibregl.Map, t: Theme, upsideDownMode: boolean) {
   if (m.getLayer('water')) {
-    m.setPaintProperty('water', 'fill-color', WATER_COLORS[t]);
+    m.setPaintProperty('water', 'fill-color', getWaterColor(t, upsideDownMode));
   }
 }
 
-function applyGreenSpaces(m: maplibregl.Map, t: Theme) {
-  const { landcover, parks } = GREEN_COLORS[t];
+function applyGreenSpaces(m: maplibregl.Map, t: Theme, upsideDownMode: boolean) {
+  const { landcover, parks } = getGreenColors(t, upsideDownMode);
   const landcoverLayers = ['landcover'];
   const parkLayers = ['park_national_park', 'park_nature_reserve', 'landuse'];
   landcoverLayers.forEach(id => {
@@ -43,6 +102,71 @@ function applyGreenSpaces(m: maplibregl.Map, t: Theme) {
   });
   parkLayers.forEach(id => {
     if (m.getLayer(id)) m.setPaintProperty(id, 'fill-color', parks);
+  });
+}
+
+function applyMirrorWorldAtmosphere(m: maplibregl.Map) {
+  const layers = m.getStyle().layers ?? [];
+
+  layers.forEach((layer) => {
+    const id = layer.id.toLowerCase();
+    const sourceLayer = getSourceLayerName(layer).toLowerCase();
+
+    if (layer.type === 'background') {
+      m.setPaintProperty(layer.id, 'background-color', MIRROR_WORLD_ROAD_COLORS.background);
+      return;
+    }
+
+    if (layer.type === 'fill') {
+      if (id.includes('water') || sourceLayer.includes('water')) {
+        m.setPaintProperty(layer.id, 'fill-color', MIRROR_WORLD_WATER_COLOR);
+        m.setPaintProperty(layer.id, 'fill-opacity', 0.9);
+        return;
+      }
+
+      if (id.includes('park') || sourceLayer.includes('park') || sourceLayer.includes('landuse')) {
+        m.setPaintProperty(layer.id, 'fill-color', MIRROR_WORLD_GREEN_COLORS.parks);
+        return;
+      }
+
+      if (id.includes('landcover') || sourceLayer.includes('landcover')) {
+        m.setPaintProperty(layer.id, 'fill-color', MIRROR_WORLD_GREEN_COLORS.landcover);
+        return;
+      }
+
+      if (id.includes('building') || sourceLayer.includes('building')) {
+        m.setPaintProperty(layer.id, 'fill-color', MIRROR_WORLD_BUILDING_COLORS.base);
+        m.setPaintProperty(layer.id, 'fill-opacity', 0.85);
+      }
+    }
+
+    if (layer.type === 'line') {
+      if (id.includes('building') || sourceLayer.includes('building') || id.includes('structure')) {
+        m.setPaintProperty(layer.id, 'line-color', MIRROR_WORLD_ROAD_COLORS.buildingOutline);
+        m.setPaintProperty(layer.id, 'line-opacity', 0.12);
+        return;
+      }
+
+      if (id.includes('road') || id.includes('street') || id.includes('highway') || sourceLayer.includes('road')) {
+        const isMajor =
+          id.includes('highway') ||
+          id.includes('motorway') ||
+          id.includes('primary') ||
+          id.includes('trunk');
+        m.setPaintProperty(layer.id, 'line-color', isMajor ? MIRROR_WORLD_ROAD_COLORS.major : MIRROR_WORLD_ROAD_COLORS.minor);
+        m.setPaintProperty(layer.id, 'line-opacity', isMajor ? 0.76 : 0.52);
+        return;
+      }
+
+      if (id.includes('boundary') || sourceLayer.includes('boundary')) {
+        m.setPaintProperty(layer.id, 'line-color', MIRROR_WORLD_ROAD_COLORS.boundary);
+        m.setPaintProperty(layer.id, 'line-opacity', 0.35);
+      }
+    }
+
+    if (layer.type === 'symbol' && getSourceId(layer) === 'carto') {
+      m.setLayoutProperty(layer.id, 'visibility', 'none');
+    }
   });
 }
 
@@ -62,10 +186,18 @@ const HILLSHADE_COLORS: Record<Theme, string> = {
   light: '#473B24',
 };
 
+const MIRROR_WORLD_HILLSHADE_COLOR = '#13040a';
+
 // Theme-aware sky colors (used with map.setSky() — v5 API)
 const SKY_COLORS: Record<Theme, maplibregl.SkySpecification> = {
   dark: { 'sky-color': '#0d1b2e', 'horizon-color': '#1a3a5c', 'fog-color': '#0d1b2e' },
   light: { 'sky-color': '#87CEEB', 'horizon-color': '#b8d4f0', 'fog-color': '#c9e4f8' },
+};
+
+const MIRROR_WORLD_SKY: maplibregl.SkySpecification = {
+  'sky-color': '#1a0c19',
+  'horizon-color': '#4a1f1d',
+  'fog-color': '#200c14',
 };
 
 const ROUTE_SOURCE_ID = 'fieldnotes-sequence-route';
@@ -77,6 +209,7 @@ const ROUTE_COLORS: Record<Theme, { line: string; casing: string; highlight: str
   dark: { line: '#ff9b54', casing: '#201008', highlight: '#fff4e6' },
   light: { line: '#d95f02', casing: '#ffffff', highlight: '#fff7cf' },
 };
+const MIRROR_WORLD_ROUTE_COLORS = { line: '#df6e29', casing: '#1a0908', highlight: '#ffd39d' };
 const ROUTE_HIGHLIGHT_WINDOW = 0.16;
 const ROUTE_ANIMATION_DURATION_MS = 2800;
 const DEFAULT_MARKER_COLOR = '#e85d04';
@@ -160,9 +293,21 @@ interface MapViewProps {
   initialCenter?: [number, number] | null;
 }
 
+function getVisibleMirrorWorldPois(map: maplibregl.Map | null, pois: POI[]) {
+  if (!map) return [];
+  const bounds = map.getBounds();
+  return pois.filter((poi) =>
+    poi.lng >= bounds.getWest() &&
+    poi.lng <= bounds.getEast() &&
+    poi.lat >= bounds.getSouth() &&
+    poi.lat <= bounds.getNorth()
+  );
+}
+
 export default function MapView({ onMapClick, theme, initialCenter }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
+  const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const previewMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [buildings3D, setBuildings3D] = useState(false);
@@ -181,6 +326,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     searchPreview,
     setSearchReturnTarget,
     sequenceEnabled,
+    upsideDownMode,
     routeGeometry,
   } = usePOIStore();
 
@@ -197,6 +343,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
   const hoveredPOIIdRef = useRef(hoveredPOIId);
   const highlightedGroupRef = useRef(highlightedGroup);
   const sequenceEnabledRef = useRef(sequenceEnabled);
+  const upsideDownModeRef = useRef(upsideDownMode);
   const routeGeometryRef = useRef<RouteGeometry | null>(routeGeometry);
   useEffect(() => {
     addingModeRef.current = addingMode;
@@ -211,18 +358,19 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     hoveredPOIIdRef.current = hoveredPOIId;
     highlightedGroupRef.current = highlightedGroup;
     sequenceEnabledRef.current = sequenceEnabled;
+    upsideDownModeRef.current = upsideDownMode;
     routeGeometryRef.current = routeGeometry;
   }, [addingMode, relocatingPOI, onMapClick, buildings3D, terrain, theme, initialCenter,
-    pois, selectedPOI, hoveredPOIId, highlightedGroup, sequenceEnabled, routeGeometry]);
+    pois, selectedPOI, hoveredPOIId, highlightedGroup, sequenceEnabled, upsideDownMode, routeGeometry]);
 
   // Add the fill-extrusion layer on top of existing building layers
-  const addBuildingExtrusion = useCallback((m: maplibregl.Map, t: Theme) => {
+  const addBuildingExtrusion = useCallback((m: maplibregl.Map, t: Theme, mirrorWorld: boolean) => {
     if (m.getLayer(BUILDING_LAYER_ID)) return; // already present
-    const { fill, base, opacity } = BUILDING_COLORS[t];
+    const { fill, base, opacity } = getBuildingColors(t, mirrorWorld);
     m.addLayer({
       id: BUILDING_LAYER_ID,
       type: 'fill-extrusion',
-      source: 'carto',
+      source: getBuildingSourceId(mirrorWorld),
       'source-layer': 'building',
       minzoom: 14,
       paint: {
@@ -244,7 +392,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     });
   }, []);
 
-  const addTerrain = useCallback((m: maplibregl.Map, t: Theme) => {
+  const addTerrain = useCallback((m: maplibregl.Map, t: Theme, mirrorWorld: boolean) => {
     // Use separate sources for terrain mesh and hillshade for better render quality
     if (!m.getSource(TERRAIN_SOURCE_ID)) {
       m.addSource(TERRAIN_SOURCE_ID, { type: 'raster-dem', tiles: TERRAIN_TILES, encoding: 'terrarium', tileSize: 256, maxzoom: 15 });
@@ -259,11 +407,11 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
         type: 'hillshade',
         source: HILLSHADE_SOURCE_ID,
         layout: { visibility: 'visible' },
-        paint: { 'hillshade-shadow-color': HILLSHADE_COLORS[t] },
+        paint: { 'hillshade-shadow-color': mirrorWorld ? MIRROR_WORLD_HILLSHADE_COLOR : HILLSHADE_COLORS[t] },
       });
     }
 
-    m.setSky(SKY_COLORS[t]);
+    m.setSky(mirrorWorld ? MIRROR_WORLD_SKY : SKY_COLORS[t]);
     m.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.5 });
   }, []);
 
@@ -281,7 +429,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     if (m.getSource(ROUTE_SOURCE_ID)) m.removeSource(ROUTE_SOURCE_ID);
   }, []);
 
-  const upsertRouteLayers = useCallback((m: maplibregl.Map, t: Theme, route: RouteGeometry) => {
+  const upsertRouteLayers = useCallback((m: maplibregl.Map, t: Theme, mirrorWorld: boolean, route: RouteGeometry) => {
     const routeData = {
       type: 'Feature' as const,
       properties: {},
@@ -313,7 +461,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       });
     }
 
-    const colors = ROUTE_COLORS[t];
+    const colors = mirrorWorld ? MIRROR_WORLD_ROUTE_COLORS : ROUTE_COLORS[t];
 
     if (!m.getLayer(ROUTE_CASING_LAYER_ID)) {
       m.addLayer({
@@ -403,7 +551,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
 
     const m = new maplibregl.Map({
       container: mapContainer.current,
-      style: MAP_STYLES[themeRef.current],
+      style: getMapStyle(themeRef.current, upsideDownModeRef.current),
       center: PORTLAND_CENTER,
       zoom: PORTLAND_DEFAULT_ZOOM,
       attributionControl: false,
@@ -411,6 +559,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       maxPitch: 85,
     });
     map.current = m;
+    setMapInstance(m);
 
     m.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
     m.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
@@ -428,28 +577,40 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
 
     // Re-apply water color + green spaces + 3D layers after any style reload
     m.on('style.load', () => {
-      applyWaterColors(m, themeRef.current);
-      applyGreenSpaces(m, themeRef.current);
+      applyWaterColors(m, themeRef.current, upsideDownModeRef.current);
+      applyGreenSpaces(m, themeRef.current, upsideDownModeRef.current);
+      if (upsideDownModeRef.current) {
+        applyMirrorWorldAtmosphere(m);
+      }
       if (buildings3DRef.current) {
-        addBuildingExtrusion(m, themeRef.current);
+        addBuildingExtrusion(m, themeRef.current, upsideDownModeRef.current);
       }
       if (terrainRef.current) {
-        addTerrain(m, themeRef.current);
+        addTerrain(m, themeRef.current, upsideDownModeRef.current);
       }
       if (sequenceEnabledRef.current && routeGeometryRef.current) {
-        upsertRouteLayers(m, themeRef.current, routeGeometryRef.current);
+        upsertRouteLayers(m, themeRef.current, upsideDownModeRef.current, routeGeometryRef.current);
       }
     });
 
+    const liveMarkers = markersRef.current;
+
     return () => {
-      markersRef.current.forEach((mk) => mk.remove());
-      markersRef.current.clear();
+      liveMarkers.forEach((mk) => mk.remove());
+      liveMarkers.clear();
       previewMarkerRef.current?.remove();
       previewMarkerRef.current = null;
       m.remove();
       map.current = null;
+      setMapInstance(null);
     };
   }, [setMapBounds, addBuildingExtrusion, addTerrain, upsertRouteLayers]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    m.setStyle(getMapStyle(themeRef.current, upsideDownMode));
+  }, [upsideDownMode]);
 
   // Toggle 3D terrain on/off
   const toggleTerrain = useCallback(() => {
@@ -460,7 +621,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
 
     if (next) {
       m.easeTo({ pitch: TERRAIN_PITCH, duration: 700 });
-      if (m.isStyleLoaded()) addTerrain(m, themeRef.current);
+      if (m.isStyleLoaded()) addTerrain(m, themeRef.current, upsideDownModeRef.current);
     } else {
       m.easeTo({ pitch: buildings3DRef.current ? BUILDING_PITCH : 0, duration: 500 });
       if (m.isStyleLoaded()) removeTerrain(m);
@@ -478,7 +639,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       // Tilt and zoom in slightly so buildings are dramatic
       m.easeTo({ pitch: BUILDING_PITCH, zoom: Math.max(m.getZoom(), 15), duration: 600 });
       if (m.isStyleLoaded()) {
-        addBuildingExtrusion(m, themeRef.current);
+        addBuildingExtrusion(m, themeRef.current, upsideDownModeRef.current);
         moveRouteLayersToTop(m);
       }
     } else {
@@ -503,14 +664,25 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     });
 
     pois.forEach((poi) => {
+      const displayTitle = getDisplayTitle(poi.title, upsideDownMode);
       if (!markersRef.current.has(poi.id)) {
         const el = document.createElement('div');
-        el.className = 'poi-marker';
-        el.style.setProperty('--marker-color', DEFAULT_MARKER_COLOR);
+        el.className = upsideDownMode ? 'poi-marker poi-marker--upside-down' : 'poi-marker';
+        el.style.setProperty('--marker-color', getMarkerColor(upsideDownMode));
+
+        const inner = document.createElement('div');
+        inner.className = upsideDownMode ? 'poi-marker-inner poi-marker-inner--upside-down' : 'poi-marker-inner';
+        inner.dataset.label = displayTitle;
 
         const dot = document.createElement('div');
         dot.className = getDotClass(poi.id, poi.group);
-        el.appendChild(dot);
+        inner.appendChild(dot);
+
+        const glyph = document.createElement('span');
+        glyph.className = 'marker-glyph';
+        glyph.textContent = upsideDownMode ? getSpookyMarkerGlyph(poi.title, poi.tags) : '';
+        inner.appendChild(glyph);
+        el.appendChild(inner);
 
         el.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -524,10 +696,23 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
 
         markersRef.current.set(poi.id, marker);
       } else {
-        markersRef.current.get(poi.id)!.setLngLat([poi.lng, poi.lat]);
+        const marker = markersRef.current.get(poi.id)!;
+        marker.setLngLat([poi.lng, poi.lat]);
+        const element = marker.getElement();
+        element.className = upsideDownMode ? 'poi-marker poi-marker--upside-down' : 'poi-marker';
+        element.style.setProperty('--marker-color', getMarkerColor(upsideDownMode));
+        const inner = element.querySelector('.poi-marker-inner');
+        if (inner instanceof HTMLDivElement) {
+          inner.className = upsideDownMode ? 'poi-marker-inner poi-marker-inner--upside-down' : 'poi-marker-inner';
+          inner.dataset.label = displayTitle;
+        }
+        const glyph = element.querySelector('.marker-glyph');
+        if (glyph) glyph.textContent = upsideDownMode ? getSpookyMarkerGlyph(poi.title, poi.tags) : '';
+        const dot = element.querySelector('.marker-dot');
+        if (dot) dot.className = getDotClass(poi.id, poi.group);
       }
     });
-  }, [pois, getDotClass]);
+  }, [pois, getDotClass, upsideDownMode]);
 
   // Update marker visual state when selection/hover/group changes (no DOM creation)
   useEffect(() => {
@@ -546,7 +731,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       zoom: Math.max(map.current.getZoom(), 14),
       duration: 700,
     });
-  }, [selectedPOI?.id]);
+  }, [selectedPOI]);
 
   useEffect(() => {
     if (!map.current || !map.current.isStyleLoaded()) return;
@@ -556,8 +741,8 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       return;
     }
 
-    upsertRouteLayers(map.current, theme, routeGeometry);
-  }, [sequenceEnabled, routeGeometry, theme, removeRouteLayers, upsertRouteLayers]);
+    upsertRouteLayers(map.current, theme, upsideDownMode, routeGeometry);
+  }, [sequenceEnabled, routeGeometry, theme, upsideDownMode, removeRouteLayers, upsertRouteLayers]);
 
   useEffect(() => {
     if (!sequenceEnabled || !routeGeometry || !map.current) return;
@@ -587,7 +772,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     animationFrameId = window.requestAnimationFrame(animate);
 
     return () => window.cancelAnimationFrame(animationFrameId);
-  }, [sequenceEnabled, routeGeometry, theme]);
+  }, [sequenceEnabled, routeGeometry, theme, upsideDownMode]);
 
   // Fly to geocoded location from LocationSearch
   useEffect(() => {
@@ -631,9 +816,23 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
     };
   }, [searchPreview]);
 
+  const showMirrorWorld = upsideDownMode;
+  const visibleMirrorWorldPois = getVisibleMirrorWorldPois(mapInstance, pois);
+
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+    <div className="map-stage">
+      <div
+        className={[
+          'map-world',
+          showMirrorWorld ? 'map-world--mirror' : '',
+          showMirrorWorld ? 'map-world--upside-down' : '',
+        ].filter(Boolean).join(' ')}
+      >
+        <div ref={mapContainer} className="map-world__canvas" />
+        <MistOverlay enabled={showMirrorWorld} map={mapInstance} pois={visibleMirrorWorldPois} />
+        <DecayOverlay enabled={showMirrorWorld} map={mapInstance} pois={visibleMirrorWorldPois} />
+        <div className="map-vignette" aria-hidden="true" />
+      </div>
       <div className="map-controls">
         <button
           className={`map-ctrl-btn${terrain ? ' map-ctrl-btn--active' : ''}`}

@@ -39,6 +39,7 @@ export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, o
     reorderPOIs,
     routeLoading,
     routeError,
+    upsideDownMode,
   } =
     usePOIStore();
   const [myMapsOpen, setMyMapsOpen] = useState(false);
@@ -122,8 +123,9 @@ export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, o
           <button
             className="btn-action btn-secondary btn-theme"
             onClick={onToggleTheme}
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            aria-label={upsideDownMode ? 'Theme locked in upside down mode' : (theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode')}
+            title={upsideDownMode ? 'UPSIDE DOWN LOCKS MAP THEME' : (theme === 'dark' ? 'Light mode' : 'Dark mode')}
+            disabled={upsideDownMode}
           >
             {theme === 'dark' ? '☀' : '☾'}
           </button>

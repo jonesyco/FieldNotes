@@ -11,7 +11,14 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ open, onClose, onExport, onImport }: SettingsModalProps) {
-    const { pois, isReadOnly, sequenceEnabled, setSequenceEnabled } =
+    const {
+        pois,
+        isReadOnly,
+        sequenceEnabled,
+        upsideDownMode,
+        setSequenceEnabled,
+        setUpsideDownMode,
+    } =
         usePOIStore();
     const allTags = useMemo(() => collectTagsFromPois(pois), [pois]);
 
@@ -57,6 +64,19 @@ export default function SettingsModal({ open, onClose, onExport, onImport }: Set
                                     checked={sequenceEnabled}
                                     onChange={(event) => setSequenceEnabled(event.target.checked)}
                                     disabled={isReadOnly}
+                                />
+                            </label>
+                            <label className="settings-option settings-option--upside-down">
+                                <div className="settings-option-copy">
+                                    <span className="settings-option-title">↯ UPSIDE DOWN</span>
+                                    <span className="settings-option-description">
+                                        Flip the visible map into its wicked mirror world.
+                                    </span>
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    checked={upsideDownMode}
+                                    onChange={(event) => setUpsideDownMode(event.target.checked)}
                                 />
                             </label>
                         </div>

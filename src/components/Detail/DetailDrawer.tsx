@@ -1,4 +1,5 @@
 import { usePOIStore } from '../../store/poiStore';
+import { getDisplayNeighborhood, getDisplayTitle } from '../../utils/spookyText';
 
 export default function DetailDrawer() {
   const {
@@ -10,6 +11,7 @@ export default function DetailDrawer() {
     setEditingPOI,
     setRelocatingPOI,
     isReadOnly,
+    upsideDownMode,
   } =
     usePOIStore();
 
@@ -20,9 +22,11 @@ export default function DetailDrawer() {
     day: 'numeric',
     year: 'numeric',
   });
+  const displayTitle = getDisplayTitle(selectedPOI.title, upsideDownMode);
+  const displayNeighborhood = getDisplayNeighborhood(selectedPOI.neighborhood, upsideDownMode);
 
   const handleDelete = () => {
-    if (window.confirm(`Delete "${selectedPOI.title}"?`)) {
+    if (window.confirm(`Delete "${displayTitle}"?`)) {
       deletePOI(selectedPOI.id);
     }
   };
@@ -32,7 +36,7 @@ export default function DetailDrawer() {
       <div className="detail-header">
         <div className="detail-meta-top">
           <span className="detail-neighborhood-badge">
-            {selectedPOI.neighborhood.toUpperCase()}
+            {displayNeighborhood.toUpperCase()}
           </span>
           {selectedPOI.tags.slice(0, 2).map((tag) => (
             <span key={tag} className="tag-chip">
@@ -40,7 +44,9 @@ export default function DetailDrawer() {
             </span>
           ))}
         </div>
-        <h2 className="detail-title">{selectedPOI.title}</h2>
+        <h2 className={`detail-title${upsideDownMode ? ' spooky-glitch' : ''}`} data-text={displayTitle}>
+          {displayTitle}
+        </h2>
         <p className="detail-date">Added {date}</p>
         <button
           className="detail-close"
@@ -53,7 +59,7 @@ export default function DetailDrawer() {
 
       {selectedPOI.photoUrl && (
         <div className="detail-photo">
-          <img src={selectedPOI.photoUrl} alt={selectedPOI.title} loading="lazy" />
+          <img src={selectedPOI.photoUrl} alt={displayTitle} loading="lazy" />
         </div>
       )}
 

@@ -11,13 +11,15 @@ import { useTheme } from './hooks/useTheme';
 import { useCollectionSync } from './hooks/useCollectionSync';
 import { useSequenceRoute } from './hooks/useSequenceRoute';
 import type { POI } from './types';
+import { getDisplayTitle } from './utils/spookyText';
+import { playUpsideDownSting } from './utils/upsideDownAudio';
 
 export default function App() {
   const { theme, toggleTheme } = useTheme();
   const auth = useAuth();
   const { addingMode, setAddingMode, editingPOI, setEditingPOI, pois, importPOIs,
            loadSharedCollection, relocatingPOI, setRelocatingPOI, updatePOI, selectPOI, isReadOnly,
-           searchPreview, setSearchPreview, searchReturnTarget, setFlyTo } =
+        searchPreview, setSearchPreview, searchReturnTarget, setFlyTo, upsideDownMode } =
     usePOIStore();
   useCollectionSync();
   useSequenceRoute();
@@ -25,6 +27,7 @@ export default function App() {
   const [addCoords, setAddCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [initialCenter, setInitialCenter] = useState<[number, number] | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const previousUpsideDownMode = useRef(upsideDownMode);
 
   // On mount: check for shared collection URL param, and get geolocation
   useEffect(() => {
@@ -44,6 +47,13 @@ export default function App() {
       );
     }
   }, [auth.loading, auth.user?.id, loadSharedCollection]);
+
+  useEffect(() => {
+    if (previousUpsideDownMode.current !== upsideDownMode) {
+      playUpsideDownSting(upsideDownMode);
+      previousUpsideDownMode.current = upsideDownMode;
+    }
+  }, [upsideDownMode]);
 
   const handleMapClick = useCallback(
     (lat: number, lng: number) => {
@@ -128,8 +138,8 @@ export default function App() {
         onToggleTheme={toggleTheme}
       />
 
-      <main className="map-area">
-        <MapView key={theme} onMapClick={handleMapClick} theme={theme} initialCenter={initialCenter} />
+      <main className={`map-area${upsideDownMode ? ' map-area--upside-down' : ''}`}>
+        <MapView key={upsideDownMode ? 'upside-down' : theme} onMapClick={handleMapClick} theme={theme} initialCenter={initialCenter} />
         <LocationSearch />
         {!isReadOnly && searchPreview && (
           <div className="add-mode-banner add-mode-banner--search" role="status">
@@ -146,7 +156,7 @@ export default function App() {
         )}
         {!isReadOnly && relocatingPOI && (
           <div className="add-mode-banner add-mode-banner--move" role="status">
-            <span>CLICK MAP TO MOVE "{relocatingPOI.title.toUpperCase()}"</span>
+            <span>CLICK MAP TO MOVE "{getDisplayTitle(relocatingPOI.title, upsideDownMode).toUpperCase()}"</span>
             <button onClick={() => setRelocatingPOI(null)}>CANCEL</button>
           </div>
         )}
