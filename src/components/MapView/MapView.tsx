@@ -191,6 +191,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
   const buildings3DRef = useRef(buildings3D);
   const terrainRef = useRef(terrain);
   const themeRef = useRef(theme);
+  const appliedStyleThemeRef = useRef<Theme | null>(null);
   const initialCenterRef = useRef(initialCenter ?? null);
   const poisRef = useRef(pois);
   const selectedPOIRef = useRef(selectedPOI);
@@ -411,6 +412,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       maxPitch: 85,
     });
     map.current = m;
+    appliedStyleThemeRef.current = themeRef.current;
 
     m.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
     m.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
@@ -450,6 +452,16 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       map.current = null;
     };
   }, [setMapBounds, addBuildingExtrusion, addTerrain, upsertRouteLayers]);
+
+  // Swap the basemap style when theme changes without recreating the map view.
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    if (appliedStyleThemeRef.current === theme) return;
+
+    appliedStyleThemeRef.current = theme;
+    m.setStyle(MAP_STYLES[theme]);
+  }, [theme]);
 
   // Toggle 3D terrain on/off
   const toggleTerrain = useCallback(() => {
