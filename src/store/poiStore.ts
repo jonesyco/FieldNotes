@@ -18,6 +18,8 @@ interface POIStore {
   isSaving: boolean;
   syncError: string | null;
   sequenceEnabled: boolean;
+  sequenceStartId: string | null;
+  sequenceEndId: string | null;
   routeGeometry: RouteGeometry | null;
   routeLoading: boolean;
   routeError: string | null;
@@ -43,11 +45,18 @@ interface POIStore {
   resetFilters: () => void;
   highlightedGroup: string | null;
   setHighlightedGroup: (group: string | null) => void;
-  replacePois: (pois: POI[], sequenceEnabled?: boolean) => void;
+  replacePois: (
+    pois: POI[],
+    sequenceEnabled?: boolean,
+    sequenceStartId?: string | null,
+    sequenceEndId?: string | null
+  ) => void;
   setCollectionId: (id: string | null) => void;
   setIsSaving: (v: boolean) => void;
   setSyncError: (message: string | null) => void;
   setSequenceEnabled: (enabled: boolean) => void;
+  setSequenceStartId: (id: string | null) => void;
+  setSequenceEndId: (id: string | null) => void;
   reorderPOIs: (draggedId: string, targetId: string, placement: DropPlacement) => void;
   setRouteGeometry: (route: RouteGeometry | null) => void;
   setRouteLoading: (loading: boolean) => void;
@@ -70,6 +79,8 @@ const DEFAULT_FILTER: FilterState = {
 interface PersistedPOIStore {
   pois: POI[];
   sequenceEnabled: boolean;
+  sequenceStartId: string | null;
+  sequenceEndId: string | null;
 }
 
 type StoredPOI = POI & { category?: unknown; tags?: unknown };
@@ -104,6 +115,22 @@ function normalizePOIs(pois: StoredPOI[]): POI[] {
   return stripSeedPois(pois).map(normalizePOI);
 }
 
+function sanitizeSequenceEndpointId(pois: POI[], id: string | null | undefined): string | null {
+  if (!id) return null;
+  return pois.some((poi) => poi.id === id && poi.includeInSequence) ? id : null;
+}
+
+function sanitizeSequenceEndpoints(
+  pois: POI[],
+  sequenceStartId: string | null | undefined,
+  sequenceEndId: string | null | undefined
+) {
+  return {
+    sequenceStartId: sanitizeSequenceEndpointId(pois, sequenceStartId),
+    sequenceEndId: sanitizeSequenceEndpointId(pois, sequenceEndId),
+  };
+}
+
 function migratePersistedState(persistedState: unknown): PersistedPOIStore {
   const state =
     typeof persistedState === 'object' && persistedState !== null
@@ -115,8 +142,12 @@ function migratePersistedState(persistedState: unknown): PersistedPOIStore {
     : [];
 
   const sequenceEnabled = typeof state?.sequenceEnabled === 'boolean' ? state.sequenceEnabled : false;
+  const sequenceStartId = typeof state?.sequenceStartId === 'string' ? state.sequenceStartId : null;
+  const sequenceEndId = typeof state?.sequenceEndId === 'string' ? state.sequenceEndId : null;
 
-  return { pois, sequenceEnabled };
+  const endpoints = sanitizeSequenceEndpoints(pois, sequenceStartId, sequenceEndId);
+
+  return { pois, sequenceEnabled, ...endpoints };
 }
 
 function movePoiById(pois: POI[], draggedId: string, targetId: string, placement: DropPlacement): POI[] {
@@ -171,6 +202,8 @@ export const usePOIStore = create<POIStore>()(
       isSaving: false,
       syncError: null,
       sequenceEnabled: false,
+      sequenceStartId: null,
+      sequenceEndId: null,
       routeGeometry: null,
       routeLoading: false,
       routeError: null,
@@ -195,27 +228,41 @@ export const usePOIStore = create<POIStore>()(
         })),
 
       updatePOI: (id, updates) =>
-        set((state) => ({
-          pois: state.pois.map((p) =>
+        set((state) => {
+          const pois = state.pois.map((p) =>
             p.id === id
               ? { ...p, ...updates, ...(updates.tags ? { tags: dedupeTags(updates.tags) } : {}) }
               : p
-          ),
-          selectedPOI:
-            state.selectedPOI?.id === id
-              ? {
-                  ...state.selectedPOI,
-                  ...updates,
-                  ...(updates.tags ? { tags: dedupeTags(updates.tags) } : {}),
-                }
-              : state.selectedPOI,
-        })),
+          );
+          const endpoints = sanitizeSequenceEndpoints(pois, state.sequenceStartId, state.sequenceEndId);
+
+          return {
+            pois,
+            sequenceStartId: endpoints.sequenceStartId,
+            sequenceEndId: endpoints.sequenceEndId,
+            selectedPOI:
+              state.selectedPOI?.id === id
+                ? {
+                    ...state.selectedPOI,
+                    ...updates,
+                    ...(updates.tags ? { tags: dedupeTags(updates.tags) } : {}),
+                  }
+                : state.selectedPOI,
+          };
+        }),
 
       deletePOI: (id) =>
-        set((state) => ({
-          pois: state.pois.filter((p) => p.id !== id),
-          selectedPOI: state.selectedPOI?.id === id ? null : state.selectedPOI,
-        })),
+        set((state) => {
+          const pois = state.pois.filter((p) => p.id !== id);
+          const endpoints = sanitizeSequenceEndpoints(pois, state.sequenceStartId, state.sequenceEndId);
+
+          return {
+            pois,
+            sequenceStartId: endpoints.sequenceStartId,
+            sequenceEndId: endpoints.sequenceEndId,
+            selectedPOI: state.selectedPOI?.id === id ? null : state.selectedPOI,
+          };
+        }),
 
       toggleFavorite: (id) =>
         set((state) => ({
@@ -229,15 +276,22 @@ export const usePOIStore = create<POIStore>()(
         })),
 
       toggleSequenceInclusion: (id) =>
-        set((state) => ({
-          pois: state.pois.map((p) =>
+        set((state) => {
+          const pois = state.pois.map((p) =>
             p.id === id ? { ...p, includeInSequence: !p.includeInSequence } : p
-          ),
-          selectedPOI:
-            state.selectedPOI?.id === id
-              ? { ...state.selectedPOI, includeInSequence: !state.selectedPOI.includeInSequence }
-              : state.selectedPOI,
-        })),
+          );
+          const endpoints = sanitizeSequenceEndpoints(pois, state.sequenceStartId, state.sequenceEndId);
+
+          return {
+            pois,
+            sequenceStartId: endpoints.sequenceStartId,
+            sequenceEndId: endpoints.sequenceEndId,
+            selectedPOI:
+              state.selectedPOI?.id === id
+                ? { ...state.selectedPOI, includeInSequence: !state.selectedPOI.includeInSequence }
+                : state.selectedPOI,
+          };
+        }),
 
       selectPOI: (poi) => set({ selectedPOI: poi }),
       hoverPOI: (id) => set({ hoveredPOIId: id }),
@@ -266,15 +320,40 @@ export const usePOIStore = create<POIStore>()(
       resetFilters: () => set({ filter: normalizeFilterState(DEFAULT_FILTER) }),
       highlightedGroup: null,
       setHighlightedGroup: (group) => set({ highlightedGroup: group }),
-      replacePois: (pois, sequenceEnabled) =>
-        set(() => ({
-          pois: normalizePOIs(pois as StoredPOI[]),
-          ...(typeof sequenceEnabled === 'boolean' ? { sequenceEnabled } : {}),
-        })),
+      replacePois: (pois, sequenceEnabled, sequenceStartId, sequenceEndId) =>
+        set(() => {
+          const normalizedPois = normalizePOIs(pois as StoredPOI[]);
+          const endpoints = sanitizeSequenceEndpoints(normalizedPois, sequenceStartId, sequenceEndId);
+
+          return {
+            pois: normalizedPois,
+            sequenceStartId: endpoints.sequenceStartId,
+            sequenceEndId: endpoints.sequenceEndId,
+            ...(typeof sequenceEnabled === 'boolean' ? { sequenceEnabled } : {}),
+          };
+        }),
       setCollectionId: (id) => set({ collectionId: id }),
       setIsSaving: (v) => set({ isSaving: v }),
       setSyncError: (message) => set({ syncError: message }),
-      setSequenceEnabled: (enabled) => set({ sequenceEnabled: enabled }),
+      setSequenceEnabled: (enabled) =>
+        set(() => ({
+          sequenceEnabled: enabled,
+          ...(!enabled
+            ? {
+                routeGeometry: null,
+                routeLoading: false,
+                routeError: null,
+              }
+            : {}),
+        })),
+      setSequenceStartId: (id) =>
+        set((state) => ({
+          sequenceStartId: sanitizeSequenceEndpointId(state.pois, id),
+        })),
+      setSequenceEndId: (id) =>
+        set((state) => ({
+          sequenceEndId: sanitizeSequenceEndpointId(state.pois, id),
+        })),
       reorderPOIs: (draggedId, targetId, placement) =>
         set((state) => ({ pois: movePoiById(state.pois, draggedId, targetId, placement) })),
       setRouteGeometry: (route) => set({ routeGeometry: route }),
@@ -298,10 +377,17 @@ export const usePOIStore = create<POIStore>()(
             filter: normalizeFilterState(DEFAULT_FILTER),
             syncError: null,
             sequenceEnabled: collection.sequence_enabled ?? false,
+            sequenceStartId: null,
+            sequenceEndId: null,
             routeGeometry: null,
             routeLoading: false,
             routeError: null,
           });
+          set((state) => sanitizeSequenceEndpoints(
+            state.pois,
+            collection.sequence_start_id,
+            collection.sequence_end_id
+          ));
         } finally {
           set({ isSaving: false });
         }
@@ -320,10 +406,17 @@ export const usePOIStore = create<POIStore>()(
             filter: normalizeFilterState(DEFAULT_FILTER),
             syncError: null,
             sequenceEnabled: collection.sequence_enabled ?? false,
+            sequenceStartId: null,
+            sequenceEndId: null,
             routeGeometry: null,
             routeLoading: false,
             routeError: null,
           });
+          set((state) => sanitizeSequenceEndpoints(
+            state.pois,
+            collection.sequence_start_id,
+            collection.sequence_end_id
+          ));
         } catch (err) {
           console.error('Failed to load collection:', err);
           alert('Could not load the map. Please try again.');
@@ -334,11 +427,13 @@ export const usePOIStore = create<POIStore>()(
     }),
     {
       name: 'fieldnotes-store',
-      version: 3,
+      version: 4,
       migrate: migratePersistedState,
       partialize: (state) => ({
         pois: state.pois,
         sequenceEnabled: state.sequenceEnabled,
+        sequenceStartId: state.sequenceStartId,
+        sequenceEndId: state.sequenceEndId,
       }),
     }
   )

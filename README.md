@@ -42,6 +42,8 @@ create table collections (
   title text,
   pois jsonb not null default '[]',
   sequence_enabled boolean not null default false,
+  sequence_start_id text,
+  sequence_end_id text,
   user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
@@ -55,6 +57,14 @@ create policy "Owner update"  on collections for update
   with check (auth.uid() = user_id);
 
 alter publication supabase_realtime add table collections;
+```
+
+If you already created the table before sequence start/end support was added, run this migration:
+
+```sql
+alter table collections
+  add column if not exists sequence_start_id text,
+  add column if not exists sequence_end_id text;
 ```
 
 ### 2 — Add your credentials

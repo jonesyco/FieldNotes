@@ -13,6 +13,7 @@ import GroupPanel from './GroupPanel';
 import AuthButton from '../UI/AuthButton';
 import MyMapsDrawer from './MyMapsDrawer';
 import SettingsModal from '../UI/SettingsModal';
+import { getOrderedSequencePois } from '../../hooks/useSequenceRoute';
 
 interface SidePanelProps {
   auth: AuthState;
@@ -36,6 +37,8 @@ export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, o
     isReadOnly,
     syncError,
     sequenceEnabled,
+    sequenceStartId,
+    sequenceEndId,
     reorderPOIs,
     routeLoading,
     routeError,
@@ -53,12 +56,28 @@ export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, o
   const visiblePois = sequenceEnabled ? pois : filtered;
   const includedSequenceIds = useMemo(
     () => new Map(
-      pois
-        .filter((poi) => poi.includeInSequence)
+      getOrderedSequencePois(pois, sequenceStartId, sequenceEndId)
+        .filter((poi, index, routePois) => routePois.findIndex((value) => value.id === poi.id) === index)
         .map((poi, index) => [poi.id, index + 1])
     ),
-    [pois]
+    [pois, sequenceStartId, sequenceEndId]
   );
+  const hasCustomStart = Boolean(sequenceStartId && pois.some((poi) => poi.id === sequenceStartId && poi.includeInSequence));
+  const hasCustomEnd = Boolean(sequenceEndId && pois.some((poi) => poi.id === sequenceEndId && poi.includeInSequence));
+  const hasRoundTrip = hasCustomStart && sequenceStartId === sequenceEndId;
+
+  const sequenceBannerText = routeError
+    ?? (routeLoading
+      ? 'ROUTING ORDERED STOPS...'
+      : hasRoundTrip
+        ? 'ROUND TRIP ACTIVE. ROUTE RETURNS TO START.'
+        : hasCustomStart && hasCustomEnd
+          ? 'START/END OVERRIDES ACTIVE. MIDDLE STOPS FOLLOW SAVED ORDER.'
+          : hasCustomStart
+            ? 'CUSTOM START ACTIVE. MIDDLE STOPS FOLLOW SAVED ORDER.'
+            : hasCustomEnd
+              ? 'CUSTOM END ACTIVE. MIDDLE STOPS FOLLOW SAVED ORDER.'
+              : 'DRAG LOCATIONS TO REORDER THE ROUTE');
 
   const handleDragStart = useCallback((poiId: string, event: DragEvent<HTMLDivElement>) => {
     if (!sequenceEnabled || isReadOnly) return;
@@ -161,7 +180,7 @@ export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, o
 
       {sequenceEnabled && (
         <div className={`sequence-banner${routeError ? ' sequence-banner--error' : ''}`} role="status">
-          {routeError ?? (routeLoading ? 'ROUTING ORDERED STOPS...' : 'DRAG LOCATIONS TO REORDER THE ROUTE')}
+          {sequenceBannerText}
         </div>
       )}
 
@@ -196,6 +215,8 @@ export default function SidePanel({ auth, onAddPOI, onExport, onImport, theme, o
                 isSelected={selectedPOI?.id === poi.id}
                 sequenceNumber={sequenceEnabled ? includedSequenceIds.get(poi.id) : undefined}
                 sequenceMode={sequenceEnabled}
+                isSequenceStart={sequenceEnabled && sequenceStartId === poi.id}
+                isSequenceEnd={sequenceEnabled && sequenceEndId === poi.id}
                 draggable={sequenceEnabled && !isReadOnly}
                isDragSource={draggedId === poi.id}
               dropPlacement={dropTarget?.id === poi.id ? dropTarget.placement : null}

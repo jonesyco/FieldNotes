@@ -7,6 +7,8 @@ export interface Collection {
   title: string | null;
   pois: POI[];
   sequence_enabled?: boolean;
+  sequence_start_id?: string | null;
+  sequence_end_id?: string | null;
   created_at: string;
   user_id?: string | null;
 }
@@ -15,7 +17,9 @@ export async function saveCollection(
   pois: POI[],
   title?: string,
   userId?: string,
-  sequenceEnabled = false
+  sequenceEnabled = false,
+  sequenceStartId: string | null = null,
+  sequenceEndId: string | null = null
 ): Promise<string> {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.');
@@ -27,6 +31,8 @@ export async function saveCollection(
     title: title ?? null,
     user_id: userId ?? null,
     sequence_enabled: sequenceEnabled,
+    sequence_start_id: sequenceStartId,
+    sequence_end_id: sequenceEndId,
   };
   const { error } = await supabase.from('collections').insert(payload);
   if (error) throw error;
@@ -36,12 +42,19 @@ export async function saveCollection(
 export async function updateCollection(
   id: string,
   pois: POI[],
-  sequenceEnabled = false
+  sequenceEnabled = false,
+  sequenceStartId: string | null = null,
+  sequenceEndId: string | null = null
 ): Promise<void> {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error('Supabase is not configured.');
   }
-  const payload: Record<string, unknown> = { pois, sequence_enabled: sequenceEnabled };
+  const payload: Record<string, unknown> = {
+    pois,
+    sequence_enabled: sequenceEnabled,
+    sequence_start_id: sequenceStartId,
+    sequence_end_id: sequenceEndId,
+  };
   const { error } = await supabase.from('collections').update(payload).eq('id', id);
   if (error) throw error;
 }
@@ -52,7 +65,7 @@ export async function loadUserCollections(userId: string): Promise<Collection[]>
   }
   const { data, error } = await supabase
     .from('collections')
-    .select('id, title, created_at, user_id, pois, sequence_enabled')
+    .select('id, title, created_at, user_id, pois, sequence_enabled, sequence_start_id, sequence_end_id')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw error;

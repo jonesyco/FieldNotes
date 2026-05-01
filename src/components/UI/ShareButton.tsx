@@ -10,7 +10,15 @@ interface ShareButtonProps {
 }
 
 export default function ShareButton({ userId, mode = 'share' }: ShareButtonProps) {
-  const { pois, setIsSaving, setCollectionId, collectionId, sequenceEnabled } = usePOIStore();
+  const {
+    pois,
+    setIsSaving,
+    setCollectionId,
+    collectionId,
+    sequenceEnabled,
+    sequenceStartId,
+    sequenceEndId,
+  } = usePOIStore();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
   const [open, setOpen] = useState(false);
@@ -31,7 +39,14 @@ export default function ShareButton({ userId, mode = 'share' }: ShareButtonProps
     }
     setIsSaving(true);
     try {
-      const id = await saveCollection(pois, undefined, userId, sequenceEnabled);
+      const id = await saveCollection(
+        pois,
+        undefined,
+        userId,
+        sequenceEnabled,
+        sequenceStartId,
+        sequenceEndId
+      );
       setCollectionId(id);
       const url = buildUrl(id);
       setShareUrl(url);
@@ -49,7 +64,14 @@ export default function ShareButton({ userId, mode = 'share' }: ShareButtonProps
     if (!isSupabaseConfigured) return;
     setIsSaving(true);
     try {
-      const id = await saveCollection(pois, undefined, userId, sequenceEnabled);
+      const id = await saveCollection(
+        pois,
+        undefined,
+        userId,
+        sequenceEnabled,
+        sequenceStartId,
+        sequenceEndId
+      );
       setCollectionId(id);
       const url = buildUrl(id);
       window.history.replaceState({}, '', `?c=${id}`);

@@ -440,6 +440,8 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       }
       if (sequenceEnabledRef.current && routeGeometryRef.current) {
         upsertRouteLayers(m, themeRef.current, routeGeometryRef.current);
+      } else {
+        removeRouteLayers(m);
       }
     });
 
@@ -451,7 +453,7 @@ export default function MapView({ onMapClick, theme, initialCenter }: MapViewPro
       m.remove();
       map.current = null;
     };
-  }, [setMapBounds, addBuildingExtrusion, addTerrain, upsertRouteLayers]);
+  }, [setMapBounds, addBuildingExtrusion, addTerrain, removeRouteLayers, upsertRouteLayers]);
 
   // Swap the basemap style when theme changes without recreating the map view.
   useEffect(() => {

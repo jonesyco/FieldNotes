@@ -6,6 +6,11 @@ export default function DetailDrawer() {
     selectPOI,
     toggleFavorite,
     toggleSequenceInclusion,
+    sequenceEnabled,
+    sequenceStartId,
+    sequenceEndId,
+    setSequenceStartId,
+    setSequenceEndId,
     deletePOI,
     setEditingPOI,
     setRelocatingPOI,
@@ -26,6 +31,10 @@ export default function DetailDrawer() {
       deletePOI(selectedPOI.id);
     }
   };
+
+  const isSequenceStart = selectedPOI.id === sequenceStartId;
+  const isSequenceEnd = selectedPOI.id === sequenceEndId;
+  const showSequenceEndpoints = sequenceEnabled && selectedPOI.includeInSequence;
 
   return (
     <div className="detail-drawer" role="complementary" aria-label="POI detail">
@@ -94,6 +103,43 @@ export default function DetailDrawer() {
           />
           <span>INCLUDE IN SEQUENCE MAP</span>
         </label>
+
+        {showSequenceEndpoints && (
+          <div className="detail-sequence-endpoints">
+            <div className="detail-coords">ROUTE POINT</div>
+            <div className="detail-actions">
+              <button
+                className={`btn-action ${isSequenceStart ? 'btn-favorite-active' : 'btn-secondary'}`}
+                onClick={() => setSequenceStartId(isSequenceStart ? null : selectedPOI.id)}
+                disabled={isReadOnly}
+                type="button"
+              >
+                {isSequenceStart ? '✓ START' : 'START'}
+              </button>
+              <button
+                className={`btn-action ${isSequenceEnd ? 'btn-favorite-active' : 'btn-secondary'}`}
+                onClick={() => setSequenceEndId(isSequenceEnd ? null : selectedPOI.id)}
+                disabled={isReadOnly}
+                type="button"
+              >
+                {isSequenceEnd ? '✓ END' : 'END'}
+              </button>
+              {(isSequenceStart || isSequenceEnd) && (
+                <button
+                  className="btn-action btn-secondary"
+                  onClick={() => {
+                    if (isSequenceStart) setSequenceStartId(null);
+                    if (isSequenceEnd) setSequenceEndId(null);
+                  }}
+                  disabled={isReadOnly}
+                  type="button"
+                >
+                  CLEAR
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {!isReadOnly && (

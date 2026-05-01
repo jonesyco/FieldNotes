@@ -9,6 +9,8 @@ interface POIListItemProps {
   onHover: (id: string | null) => void;
   sequenceNumber?: number;
   sequenceMode?: boolean;
+  isSequenceStart?: boolean;
+  isSequenceEnd?: boolean;
   draggable?: boolean;
   isDragSource?: boolean;
   dropPlacement?: 'before' | 'after' | null;
@@ -25,6 +27,8 @@ export default memo(function POIListItem({
   onHover,
   sequenceNumber,
   sequenceMode = false,
+  isSequenceStart = false,
+  isSequenceEnd = false,
   draggable = false,
   isDragSource = false,
   dropPlacement = null,
@@ -77,6 +81,9 @@ export default memo(function POIListItem({
           {poi.favorite && <span className="list-item-star" aria-label="Favorited">★</span>}
         </div>
         <div className="list-item-meta">
+          {sequenceMode && isSequenceStart && <span className="tag-chip">START</span>}
+          {sequenceMode && isSequenceEnd && <span className="tag-chip">END</span>}
+          {sequenceMode && (isSequenceStart || isSequenceEnd) && <span className="list-item-sep" aria-hidden="true">·</span>}
           {primaryTag && (
             <>
               <span className="list-item-category">{primaryTag}</span>

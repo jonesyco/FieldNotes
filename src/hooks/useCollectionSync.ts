@@ -27,7 +27,16 @@ function getSyncErrorMessage(error: unknown): string {
  *                     initial set-pois doesn't trigger a spurious save.
  */
 export function useCollectionSync() {
-  const { pois, collectionId, replacePois, isReadOnly, setSyncError, sequenceEnabled } = usePOIStore();
+  const {
+    pois,
+    collectionId,
+    replacePois,
+    isReadOnly,
+    setSyncError,
+    sequenceEnabled,
+    sequenceStartId,
+    sequenceEndId,
+  } = usePOIStore();
 
   const skipNextRealtimeRef = useRef(false);
   const remoteUpdateRef = useRef(false);
@@ -50,8 +59,13 @@ export function useCollectionSync() {
             return;
           }
           remoteUpdateRef.current = true;
-          const row = payload.new as { pois: POI[]; sequence_enabled?: boolean };
-          replacePois(row.pois, row.sequence_enabled);
+          const row = payload.new as {
+            pois: POI[];
+            sequence_enabled?: boolean;
+            sequence_start_id?: string | null;
+            sequence_end_id?: string | null;
+          };
+          replacePois(row.pois, row.sequence_enabled, row.sequence_start_id, row.sequence_end_id);
           setSyncError(null);
         }
       )
@@ -80,7 +94,7 @@ export function useCollectionSync() {
     saveTimerRef.current = setTimeout(async () => {
       skipNextRealtimeRef.current = true;
       try {
-        await updateCollection(collectionId, pois, sequenceEnabled);
+        await updateCollection(collectionId, pois, sequenceEnabled, sequenceStartId, sequenceEndId);
         setSyncError(null);
       } catch (err) {
         console.error('Auto-save failed:', err);
@@ -90,5 +104,5 @@ export function useCollectionSync() {
     }, 1500);
 
     return () => clearTimeout(saveTimerRef.current);
-  }, [pois, collectionId, isReadOnly, sequenceEnabled, setSyncError]);
+  }, [pois, collectionId, isReadOnly, sequenceEnabled, sequenceStartId, sequenceEndId, setSyncError]);
 }

@@ -1,18 +1,56 @@
 import { useEffect, useMemo } from 'react';
 import { fetchSequenceRoute } from '../lib/routing';
+import type { POI } from '../types';
 import { usePOIStore } from '../store/poiStore';
+
+export function getOrderedSequencePois(
+  pois: POI[],
+  sequenceStartId: string | null,
+  sequenceEndId: string | null
+): POI[] {
+  const includedPois = pois.filter((poi) => poi.includeInSequence);
+  if (includedPois.length < 2) return includedPois;
+
+  const startPoi = sequenceStartId
+    ? includedPois.find((poi) => poi.id === sequenceStartId) ?? null
+    : null;
+  const endPoi = sequenceEndId
+    ? includedPois.find((poi) => poi.id === sequenceEndId) ?? null
+    : null;
+
+  if (!startPoi && !endPoi) {
+    return includedPois;
+  }
+
+  if (startPoi && endPoi && startPoi.id === endPoi.id) {
+    const middlePois = includedPois.filter((poi) => poi.id !== startPoi.id);
+    return [startPoi, ...middlePois, endPoi];
+  }
+
+  const middlePois = includedPois.filter(
+    (poi) => poi.id !== startPoi?.id && poi.id !== endPoi?.id
+  );
+
+  return [
+    ...(startPoi ? [startPoi] : []),
+    ...middlePois,
+    ...(endPoi ? [endPoi] : []),
+  ];
+}
 
 export function useSequenceRoute() {
   const {
     pois,
     sequenceEnabled,
+    sequenceStartId,
+    sequenceEndId,
     setRouteGeometry,
     setRouteLoading,
     setRouteError,
   } = usePOIStore();
   const routePois = useMemo(
-    () => pois.filter((poi) => poi.includeInSequence),
-    [pois]
+    () => getOrderedSequencePois(pois, sequenceStartId, sequenceEndId),
+    [pois, sequenceStartId, sequenceEndId]
   );
 
   useEffect(() => {
